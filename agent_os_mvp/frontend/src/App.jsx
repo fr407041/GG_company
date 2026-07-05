@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8010";
 
 const emptyMonitor = {
   overview: {
@@ -9,35 +9,40 @@ const emptyMonitor = {
     fail_count: 0,
     specs: [],
     active_agents: 0,
-    latest_status: 'unknown',
+    latest_status: "unknown",
   },
   latest_run: null,
   recent_runs: [],
 };
 
 function StatusBadge({ value }) {
-  const normalized = String(value || 'unknown').toLowerCase().replace(/\s+/g, '-');
-  return <span className={`status-badge status-${normalized}`}>{value || 'unknown'}</span>;
+  const normalized = String(value || "unknown").toLowerCase().replace(/\s+/g, "-");
+  return <span className={`status-badge status-${normalized}`}>{value || "unknown"}</span>;
 }
 
 function formatDate(value) {
-  if (!value) return 'n/a';
+  if (!value) return "n/a";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('zh-TW', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+  return new Intl.DateTimeFormat("zh-TW", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(date);
+}
+
+function renderList(items) {
+  if (!items || items.length === 0) return "n/a";
+  return items.join(", ");
 }
 
 export default function App() {
   const [monitor, setMonitor] = useState(emptyMonitor);
-  const [selectedRunId, setSelectedRunId] = useState('');
+  const [selectedRunId, setSelectedRunId] = useState("");
   const [selectedRun, setSelectedRun] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   async function loadMonitor() {
     try {
@@ -45,10 +50,10 @@ export default function App() {
       if (!response.ok) throw new Error(`Monitor load failed: ${response.status}`);
       const data = await response.json();
       setMonitor(data);
-      setSelectedRunId((current) => current || data.latest_run?.run_id || '');
-      setError('');
+      setSelectedRunId((current) => current || data.latest_run?.run_id || "");
+      setError("");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Failed to load monitor");
     } finally {
       setLoading(false);
     }
@@ -61,9 +66,9 @@ export default function App() {
       if (!response.ok) throw new Error(`Run detail load failed: ${response.status}`);
       const data = await response.json();
       setSelectedRun(data);
-      setError('');
+      setError("");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Failed to load run detail");
     }
   }
 
@@ -74,7 +79,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (selectedRunId) loadRunDetail(selectedRunId);
+    if (selectedRunId) {
+      loadRunDetail(selectedRunId);
+    }
   }, [selectedRunId]);
 
   const run = selectedRun || monitor.latest_run;
@@ -84,10 +91,10 @@ export default function App() {
 
   const topMetrics = useMemo(
     () => [
-      { label: '總 run 數', value: monitor.overview.total_runs },
-      { label: '成功', value: monitor.overview.pass_count },
-      { label: '失敗', value: monitor.overview.fail_count },
-      { label: '進行中 agent', value: activeAgents.length || monitor.overview.active_agents },
+      { label: "Total runs", value: monitor.overview.total_runs },
+      { label: "Pass", value: monitor.overview.pass_count },
+      { label: "Fail", value: monitor.overview.fail_count },
+      { label: "Active agents", value: activeAgents.length || monitor.overview.active_agents },
     ],
     [monitor, activeAgents],
   );
@@ -96,15 +103,17 @@ export default function App() {
     <main className="simple-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">AI Company Simple Board</p>
-          <h1>一眼看懂這輪任務有沒有正常前進</h1>
+          <p className="eyebrow">AI Company Dashboard</p>
+          <h1>Mission Control</h1>
           <p className="subcopy">
-            只看三件事：現在狀態、誰在工作、結果可信嗎。其他技術細節都放在展開區。
+            This dashboard focuses on the latest run, including meeting conclusions, task assignment,
+            execution status, artifact checks, and alert signals for the multi-agent workflow.
           </p>
         </div>
+
         <div className="topbar-actions">
           <label className="run-picker">
-            <span>選擇 run</span>
+            <span>Select run</span>
             <select value={selectedRunId} onChange={(event) => setSelectedRunId(event.target.value)}>
               {(monitor.recent_runs || []).map((item) => (
                 <option key={item.run_id} value={item.run_id}>
@@ -113,8 +122,9 @@ export default function App() {
               ))}
             </select>
           </label>
+
           <button type="button" className="refresh-button" onClick={loadMonitor}>
-            {loading ? '載入中...' : '重新整理'}
+            {loading ? "Loading..." : "Refresh"}
           </button>
         </div>
       </header>
@@ -133,37 +143,39 @@ export default function App() {
       <section className="hero-status">
         <div className="hero-main card">
           <div className="card-header">
-            <h2>現在狀態</h2>
+            <h2>Latest status</h2>
             <StatusBadge value={run?.overall_status || monitor.overview.latest_status} />
           </div>
-          <p className="goal-text">{run?.goal || '尚未讀到 run。'}</p>
-          <p className="decision-text">{run?.decision_summary || '尚未讀到結論。'}</p>
+
+          <p className="goal-text">{run?.goal || "No run is available yet."}</p>
+          <p className="decision-text">{run?.decision_summary || "No decision summary has been recorded yet."}</p>
+
           <div className="mini-grid">
             <div>
               <span>Spec</span>
-              <strong>{run?.spec_id || 'n/a'}</strong>
+              <strong>{run?.spec_id || "n/a"}</strong>
             </div>
             <div>
-              <span>開始時間</span>
+              <span>Started</span>
               <strong>{formatDate(run?.started_at)}</strong>
             </div>
             <div>
-              <span>會議狀態</span>
-              <strong>{run?.meeting_status || 'n/a'}</strong>
+              <span>Meeting status</span>
+              <strong>{run?.meeting_status || "n/a"}</strong>
             </div>
             <div>
-              <span>Artifact 分數</span>
-              <strong>{finalResult.artifact_score ?? 'n/a'}</strong>
+              <span>Artifact score</span>
+              <strong>{finalResult.artifact_score ?? "n/a"}</strong>
             </div>
           </div>
         </div>
 
         <div className="hero-alerts card">
           <div className="card-header">
-            <h2>告警</h2>
+            <h2>Alerts</h2>
           </div>
           <div className="alert-stack">
-            {alerts.length === 0 ? <p className="muted">沒有告警。</p> : null}
+            {alerts.length === 0 ? <p className="muted">No alerts at the moment.</p> : null}
             {alerts.map((alert) => (
               <article key={`${alert.type}-${alert.title}`} className={`alert-item alert-${alert.severity}`}>
                 <strong>{alert.title}</strong>
@@ -177,10 +189,10 @@ export default function App() {
       <section className="main-grid">
         <article className="card">
           <div className="card-header">
-            <h2>誰在工作</h2>
-            <span className="helper-text">{activeAgents.length} 個 active agent</span>
+            <h2>Active agents</h2>
+            <span className="helper-text">{activeAgents.length} in progress</span>
           </div>
-          {activeAgents.length === 0 ? <p className="muted">目前沒有進行中的 agent。</p> : null}
+          {activeAgents.length === 0 ? <p className="muted">No active agents right now.</p> : null}
           <div className="agent-list">
             {activeAgents.map((agent) => (
               <article key={agent.task_id} className="agent-item">
@@ -189,8 +201,8 @@ export default function App() {
                   <StatusBadge value={agent.status} />
                 </div>
                 <p>Task: {agent.task_id}</p>
-                <p>Scope: {(agent.scope || []).join(', ') || 'n/a'}</p>
-                <p>Next step: {agent.fallback_plan || '依 acceptance criteria 繼續推進'}</p>
+                <p>Scope: {renderList(agent.scope)}</p>
+                <p>Next step: {agent.fallback_plan || "Finish within the acceptance criteria and report back."}</p>
               </article>
             ))}
           </div>
@@ -198,18 +210,20 @@ export default function App() {
 
         <article className="card">
           <div className="card-header">
-            <h2>結果可信嗎</h2>
+            <h2>Summary and checks</h2>
             <span className="helper-text">
               {Object.values(finalResult.artifact_checks || {}).filter(Boolean).length}/
               {Object.keys(finalResult.artifact_checks || {}).length} checks
             </span>
           </div>
-          <pre className="summary-box">{finalResult.summary_markdown || '尚未產生 summary。'}</pre>
+
+          <pre className="summary-box">{finalResult.summary_markdown || "No summary has been generated yet."}</pre>
+
           <div className="check-list">
             {Object.entries(finalResult.artifact_checks || {}).map(([key, value]) => (
-              <div key={key} className={`check-item ${value ? 'check-pass' : 'check-fail'}`}>
+              <div key={key} className={`check-item ${value ? "check-pass" : "check-fail"}`}>
                 <span>{key}</span>
-                <strong>{value ? 'pass' : 'fail'}</strong>
+                <strong>{value ? "pass" : "fail"}</strong>
               </div>
             ))}
           </div>
@@ -218,12 +232,14 @@ export default function App() {
 
       <section className="details-section">
         <details className="detail-card">
-          <summary>展開會議與任務細節</summary>
+          <summary>Meeting log and task assignment</summary>
           <div className="detail-body">
-            <h3>會議討論</h3>
+            <h3>Discussion</h3>
             {(run?.meeting?.discussion_log || []).map((item, index) => (
               <article key={`${item.role}-${index}`} className="detail-item">
-                <strong>Round {item.round} · {item.role}</strong>
+                <strong>
+                  Round {item.round} / {item.role}
+                </strong>
                 <p>{item.summary}</p>
                 <ul>
                   {(item.proposed_actions || []).map((action) => (
@@ -232,29 +248,65 @@ export default function App() {
                 </ul>
               </article>
             ))}
+
+            <h3>Assigned tasks</h3>
+            {(run?.meeting?.task_assignments || []).map((task) => (
+              <article key={task.task_id} className="detail-item">
+                <strong>{task.task_id}</strong>
+                <p>Owner: {task.owner_role}</p>
+                <p>Scope: {renderList(task.scope)}</p>
+              </article>
+            ))}
           </div>
         </details>
 
         <details className="detail-card">
-          <summary>展開 prompt / raw output / exec log</summary>
+          <summary>Prompt, raw output, and execution log</summary>
           <div className="detail-body">
             {(run?.status_details || []).map((item) => (
               <article key={item.id} className="detail-item">
-                <strong>{item.id} · {item.owner_role} · {item.status}</strong>
+                <strong>
+                  {item.id} / {item.owner_role} / {item.status}
+                </strong>
                 <details>
                   <summary>Prompt</summary>
-                  <pre>{item.prompt_excerpt || 'No prompt artifact.'}</pre>
+                  <pre>{item.prompt_excerpt || "No prompt artifact."}</pre>
                 </details>
                 <details>
-                  <summary>Raw Output</summary>
-                  <pre>{item.raw_excerpt || 'No raw output artifact.'}</pre>
+                  <summary>Raw output</summary>
+                  <pre>{item.raw_excerpt || "No raw output artifact."}</pre>
                 </details>
                 <details>
-                  <summary>Exec Log</summary>
-                  <pre>{item.exec_log_excerpt || 'No exec log artifact.'}</pre>
+                  <summary>Execution log</summary>
+                  <pre>{item.exec_log_excerpt || "No execution log artifact."}</pre>
                 </details>
               </article>
             ))}
+          </div>
+        </details>
+
+        <details className="detail-card">
+          <summary>Recent runs</summary>
+          <div className="detail-body">
+            <div className="run-list">
+              {(monitor.recent_runs || []).map((item) => (
+                <button
+                  key={item.run_id}
+                  type="button"
+                  className={`run-row ${item.run_id === selectedRunId ? "run-row-active" : ""}`}
+                  onClick={() => setSelectedRunId(item.run_id)}
+                >
+                  <div>
+                    <strong>{item.run_id}</strong>
+                    <p>{item.goal}</p>
+                  </div>
+                  <div className="run-row-meta">
+                    <StatusBadge value={item.overall_status} />
+                    <span>{item.artifact_score ?? "n/a"}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </details>
       </section>
