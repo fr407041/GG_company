@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Task Orchestrator"
+  short_description: "Bounded multi-agent research flow with KPI verification."
+  default_prompt: "Use $research-task-orchestrator to plan a bounded research task, prepare compact evidence, dispatch small child jobs, and verify the result."
