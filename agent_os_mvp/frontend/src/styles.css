@@ -1,0 +1,63 @@
+:root {
+  font-family: "Segoe UI", "Noto Sans TC", sans-serif;
+  color: #1c2733;
+  background: linear-gradient(180deg, #f7f5ef 0%, #f3f7fb 100%);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+.simple-shell { max-width: 1280px; margin: 0 auto; padding: 24px; }
+.topbar { display: flex; justify-content: space-between; gap: 20px; align-items: start; }
+.eyebrow { margin: 0 0 8px; color: #9a5f18; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; }
+.topbar h1 { margin: 0 0 12px; font-size: clamp(2rem, 4vw, 3.6rem); line-height: 0.98; }
+.subcopy { margin: 0; max-width: 760px; color: #5b6b79; line-height: 1.6; }
+.topbar-actions { display: flex; flex-direction: column; gap: 12px; min-width: 280px; }
+.run-picker, .refresh-button, .card, .metric-card, .detail-card { background: #fff; border: 1px solid #dde5ec; border-radius: 20px; }
+.run-picker { display: flex; flex-direction: column; gap: 8px; padding: 14px; font-weight: 600; }
+.run-picker select { border: 1px solid #c8d3de; border-radius: 12px; padding: 10px 12px; font: inherit; background: #fbfcfd; }
+.refresh-button { border: 0; padding: 12px 16px; font: inherit; font-weight: 700; cursor: pointer; color: white; background: linear-gradient(135deg, #124f8d, #12726d); }
+.error-banner { color: #9b2300; background: #fff1eb; border: 1px solid #f2c6b5; border-radius: 14px; padding: 12px 14px; }
+.metric-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 22px 0; }
+.metric-card { padding: 16px; }
+.metric-card span { display: block; color: #637486; margin-bottom: 8px; }
+.metric-card strong { font-size: 1.8rem; }
+.hero-status, .main-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; margin-bottom: 18px; }
+.card { padding: 18px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.card-header h2 { margin: 0; font-size: 1.2rem; }
+.helper-text { color: #637486; font-size: 0.9rem; }
+.goal-text { margin: 0 0 8px; font-weight: 600; line-height: 1.5; }
+.decision-text, .muted { margin: 0; color: #60707f; line-height: 1.55; }
+.mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.mini-grid div { padding: 12px; border-radius: 14px; background: #f7fafc; }
+.mini-grid span { display: block; color: #60707f; margin-bottom: 6px; font-size: 0.88rem; }
+.status-badge { display: inline-flex; align-items: center; justify-content: center; padding: 6px 11px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; }
+.status-pass, .status-accepted, .status-green { background: #e9f8ef; color: #0f6b43; }
+.status-fail, .status-red, .status-failed, .status-router_error, .status-overflow_detected { background: #ffebe5; color: #972c00; }
+.status-yellow, .status-review_pending, .status-replan_required, .status-needs_replan, .status-queued, .status-unknown, .status-meeting_ready { background: #fff4df; color: #8a5d11; }
+.alert-stack, .agent-list, .check-list { display: flex; flex-direction: column; gap: 10px; }
+.alert-item, .agent-item, .check-item, .detail-item { padding: 12px 14px; border-radius: 14px; background: #f8fafc; }
+.alert-item p, .agent-item p, .detail-item p { margin: 6px 0 0; line-height: 1.5; }
+.alert-red { border-left: 4px solid #c03700; }
+.alert-yellow { border-left: 4px solid #b17817; }
+.alert-green { border-left: 4px solid #178050; }
+.agent-topline { display: flex; justify-content: space-between; gap: 10px; }
+.summary-box { margin: 0 0 12px; padding: 14px; border-radius: 14px; background: #17232f; color: #f5f7fa; white-space: pre-wrap; word-break: break-word; font-family: "Cascadia Code", "Consolas", monospace; line-height: 1.55; }
+.check-item { display: flex; justify-content: space-between; gap: 10px; }
+.check-pass { border-left: 4px solid #178050; }
+.check-fail { border-left: 4px solid #c03700; }
+.details-section { display: flex; flex-direction: column; gap: 12px; }
+.detail-card { overflow: hidden; }
+.detail-card summary { cursor: pointer; padding: 16px 18px; font-weight: 700; }
+.detail-body { padding: 0 18px 18px; }
+.detail-body h3 { margin: 12px 0 10px; }
+.detail-item + .detail-item { margin-top: 10px; }
+.detail-item pre { margin: 10px 0 0; padding: 12px; border-radius: 12px; background: #0f1720; color: #f4f7fb; white-space: pre-wrap; word-break: break-word; font-family: "Cascadia Code", "Consolas", monospace; font-size: 0.88rem; }
+
+@media (max-width: 960px) {
+  .topbar, .hero-status, .main-grid, .metric-row { grid-template-columns: 1fr; display: grid; }
+  .topbar { display: flex; flex-direction: column; }
+  .topbar-actions { min-width: 0; width: 100%; }
+  .simple-shell { padding: 18px; }
+}
