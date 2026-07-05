@@ -1,0 +1,25 @@
+{
+  "objective": "建立 AI-company orchestration core，讓任務建立後可自動完成 task classification、pipeline attach、meeting trigger、agent assignment、event logging 與 decision trace，並以單頁簡化 Web GUI 呈現 current status、active agents、result trustworthiness 與可展開細節。只有當 KPI spec、test matrix、SQLite-backed monitor、simple GUI 與 goal check 全部就位且驗證通過時，才視為完成。",
+  "required_files": [
+    "docs/goals/ai_company_autopilot_goal.md",
+    "configs/ai_company/kpi.autopilot.json",
+    "configs/ai_company/test_matrix.autopilot.json",
+    "configs/ai_company/event_schema.autopilot.json",
+    "configs/ai_company/pipeline_rules.autopilot.json",
+    "configs/ai_company/meeting_triggers.autopilot.json",
+    "configs/ai_company/agent_assignment_rules.autopilot.json",
+    "scripts/check_ai_company_autopilot_goal.js",
+    "docs/common_research_orchestrator_zh-TW.md",
+    ".claude/skills/research-task-orchestrator/SKILL.md",
+    "agent_os_mvp/backend/app/services/ai_company_monitor.py",
+    "agent_os_mvp/frontend/src/App.jsx"
+  ],
+  "required_commands": [
+    "node scripts/check_ai_company_autopilot_goal.js"
+  ],
+  "notes": [
+    "Goal text alone is not enough; the goal package must include KPI spec, test matrix, and goal check assets.",
+    "The default GUI must stay simple: current status, active agents, and result trustworthiness only.",
+    "Meeting, pipeline, event log, and decision cockpit must be modeled as automatic orchestration capabilities, not manual user steps."
+  ]
+}
