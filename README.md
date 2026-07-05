@@ -2,43 +2,47 @@
 
 A minimal AI-company autopilot package for `Claude Code + router + open-source model` usage.
 
-This repository contains only the necessary files to:
+This repository now includes a practical dashboard bundle under `agent_os_mvp/` so a company Ubuntu or Windows environment can:
 
-- define autopilot rules for pipeline, meeting, event log, and agent assignment
-- provide a simple one-page Web GUI
-- back the GUI with FastAPI + SQLite
-- bundle a project-local Claude skill and goal manifest
-- document installation and usage in Chinese
+- run `Claude Code + Claude Code Router` as usual
+- keep task results under `results/ai_company_task_harness`
+- launch a small FastAPI + SQLite + React dashboard
+- review meeting output, agent assignment, alert signals, and artifact checks from the browser
 
-## Structure
+## Main Folders
 
-- `agent_os_mvp/backend/`
+- `agent_os_mvp/`
+  - lightweight dashboard package
   - FastAPI backend
-  - SQLite sync for run summaries
-  - APIs:
-    - `GET /health`
-    - `GET /api/ai-company-monitor`
-    - `GET /api/ai-company-monitor/runs/{run_id}`
-- `agent_os_mvp/frontend/`
-  - Vite + React single-page GUI
+  - Vite + React frontend
+  - Windows startup helpers
+  - Linux startup helpers
 - `configs/ai_company/`
   - autopilot rules, KPI spec, and test matrix
 - `docs/`
   - installation, usage, and goal docs
 - `.claude/`
   - project-local skill and goal manifest
-- `scripts/check_ai_company_autopilot_goal.js`
-  - validates the goal package
 
-## Design Principles
+## Start Here
 
-- Keep the default UI simple.
-- Show only three primary sections first:
-  - current status
-  - active agents
-  - result trustworthiness
-- Keep technical details expandable.
-- Use low dependencies and SQLite only.
+- English package overview:
+  - `agent_os_mvp/README.md`
+- Chinese install and usage guide:
+  - `agent_os_mvp/README.zh-TW.md`
+
+## Dashboard Capabilities
+
+The dashboard is designed to visualize run artifacts that already exist, not to replace `claude` or `ccr`.
+
+It shows:
+
+- latest run status
+- meeting summary
+- active agents
+- alert signals such as overflow, router error, timeout, and artifact regression
+- summary output and artifact verification checks
+- prompt, raw output, and execution logs
 
 ## Quick Start
 
@@ -47,7 +51,7 @@ This repository contains only the necessary files to:
 ```bash
 cd agent_os_mvp/backend
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --host 127.0.0.1 --port 8010
 ```
 
 ### Frontend
@@ -55,17 +59,26 @@ uvicorn app.main:app --reload
 ```bash
 cd agent_os_mvp/frontend
 npm install
-npm run dev
+VITE_API_BASE_URL=http://127.0.0.1:8010 npm run dev -- --host 127.0.0.1 --port 5174
 ```
 
-### Goal Package Check
+Open:
 
-```bash
-node scripts/check_ai_company_autopilot_goal.js
-```
+- `http://127.0.0.1:5174/`
 
-## Main Docs
+## Company Usage Model
 
-- `docs/common_research_orchestrator_zh-TW.md`
-- `docs/goals/ai_company_autopilot_goal.md`
-- `.claude/skills/research-task-orchestrator/SKILL.md`
+Recommended flow:
+
+1. install and validate `Claude Code` and `Claude Code Router`
+2. run the task orchestration with your open-source model or router upstream
+3. keep results under `results/ai_company_task_harness`
+4. start `agent_os_mvp`
+5. inspect run health and trustworthiness from the web UI
+
+## Notes
+
+- do not commit `.venv`, `node_modules`, `dist`, or runtime logs
+- the dashboard does not download models
+- the dashboard does not modify your router config
+- it only reads existing artifacts and visualizes them
