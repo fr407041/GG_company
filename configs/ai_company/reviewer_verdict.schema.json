@@ -25,6 +25,7 @@
         "REPAIR_REQUIRED",
         "REPLAN_REQUIRED",
         "FALSE_SUCCESS_BLOCKED",
+        "OUTPUT_POLICY_BLOCKED",
         "SCHEMA_INVALID",
         "MISSING_ARTIFACT"
       ]
@@ -35,7 +36,12 @@
       "items": { "type": "string", "minLength": 1 }
     },
     "repair_action": { "type": "string" },
-    "replan_required": { "type": "boolean" }
+    "replan_required": { "type": "boolean" },
+    "guard_failures": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "policy_blocked": { "type": "boolean" }
   },
   "additionalProperties": false
 }

@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ai_company_contracts import ensure_failure_family
 from materialize_ai_company_task_run import ROOT
 from run_ai_company_execution import ensure_status_file
 from subagent_claim_ledger import validate_claim_contract, write_claim_ledger
@@ -93,6 +94,19 @@ def status_records(run_dir: Path) -> list[dict[str, Any]]:
         payload["_status_path"] = str(path)
         rows.append(payload)
     return rows
+
+
+def repeated_failure_family_detected(run_dir: Path) -> tuple[bool, str]:
+    families: dict[str, int] = {}
+    for item in status_records(run_dir):
+        family = str(item.get("failure_family", "")).strip()
+        if not family:
+            continue
+        families[family] = families.get(family, 0) + 1
+    for family, count in families.items():
+        if count >= 2:
+            return True, family
+    return False, ""
 
 
 def write_heartbeat(run_dir: Path, phase: str, state: str = "running") -> dict[str, Any]:
@@ -297,6 +311,8 @@ def watchdog_once(run_dir: Path, defaults: dict[str, Any] | None = None) -> dict
         for status in statuses.values():
             raw_status = str(status.get("status", "")).upper()
             status_path = Path(str(status.get("_status_path", "")))
+            if not bool(status.get("contract_valid", True)):
+                events.append(event("CONTRACT_INVALID", "error", "WATCHDOG_ESCALATION_REQUIRED", "Status artifact failed contract validation.", str(status.get("id", ""))))
             if raw_status in NON_TERMINAL_STATUSES and path_age_sec(status_path) > stale_after:
                 if actions_used < max_actions:
                     evt = repair_stale_status(run_dir, status)
@@ -341,6 +357,17 @@ def watchdog_once(run_dir: Path, defaults: dict[str, Any] | None = None) -> dict
                 evt = event("FINAL_NOT_PASS", "error", "WATCHDOG_ESCALATION_REQUIRED", "Final artifact verify is missing or failing; bounded automatic recovery is exhausted or insufficient.")
             events.append(evt)
             append_event(run_dir, evt)
+
+        repeated_failure, family = repeated_failure_family_detected(run_dir)
+        if repeated_failure:
+            events.append(
+                event(
+                    "REPEATED_FAILURE_FAMILY",
+                    "error",
+                    "WATCHDOG_ESCALATION_REQUIRED",
+                    f"Repeated failure family detected: {ensure_failure_family(family, family)}.",
+                )
+            )
 
         latest_mtime = latest_artifact_mtime(run_dir)
         stale_run = latest_mtime > 0 and (time.time() - latest_mtime) > stale_after

@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ai_company_contracts import guard_input_spec, write_guard_report
 
 ROOT = Path(__file__).resolve().parent.parent
 RUN_ROOT = ROOT / "results" / "ai_company_task_runs"
@@ -37,6 +38,9 @@ def materialize_run(spec_path: Path, out_root: Path | None = None) -> Path:
     jobs_dir.mkdir(parents=True, exist_ok=True)
     results_dir.mkdir(parents=True, exist_ok=True)
     ai_company_dir.mkdir(parents=True, exist_ok=True)
+
+    input_guard = guard_input_spec(spec, spec_path)
+    write_guard_report(run_dir, "input_guard_report.json", input_guard)
 
     scope_subdir = str(spec.get("scope_subdir", "."))
     scope_path = (ROOT / scope_subdir).resolve()
@@ -79,6 +83,7 @@ def materialize_run(spec_path: Path, out_root: Path | None = None) -> Path:
             "planned_jobs_after_retries": len(jobs),
             "avg_files_per_job": f"{(sum(len(job.get('files', [])) for job in jobs) / len(jobs)):.2f}" if jobs else "0.00",
             "max_files_in_job": max((len(job.get("files", [])) for job in jobs), default=0),
+            "prompt_injection_block_count": len(input_guard.get("flagged_jobs", [])),
         },
     }
     write_json(run_dir / "summary.json", summary)

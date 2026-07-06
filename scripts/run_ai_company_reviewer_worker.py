@@ -4,6 +4,13 @@ import json
 import sys
 from pathlib import Path
 
+from ai_company_contracts import (
+    append_contract_event,
+    guard_output_artifact,
+    validate_against_schema,
+    write_guard_report,
+    write_json,
+)
 from subagent_claim_ledger import validate_claim_contract, write_claim_ledger
 from verify_sens_summary_artifact import verify_case_dir
 from verify_common_research_artifact import verify_case_dir as verify_common_case_dir
@@ -42,6 +49,7 @@ def map_verdict(
     changed_count: int,
     artifact_verify: dict | None = None,
     claim_issue: str = "",
+    policy_blocked: bool = False,
 ) -> tuple[str, bool]:
     if claim_issue == "missing_claim":
         return "REPAIR_REQUIRED", False
@@ -49,6 +57,8 @@ def map_verdict(
         return "FALSE_SUCCESS_BLOCKED", False
     if claim_issue == "uncertainty_gap":
         return "REPAIR_REQUIRED", False
+    if policy_blocked:
+        return "OUTPUT_POLICY_BLOCKED", False
     if artifact_verify and status == "SUCCESS" and not artifact_verify.get("all_passed", False):
         return "FALSE_SUCCESS_BLOCKED", False
     if status == "SUCCESS":
@@ -77,6 +87,7 @@ def build_reviewer_payload(run_dir: Path) -> dict:
     for claim in claim_ledger.get("claims", []):
         claims_by_task.setdefault(str(claim.get("task_id", "")), []).append(claim)
     verdicts = []
+    output_guard_failures: list[dict] = []
     for status_path in sorted(results_dir.glob("*.status.json")):
         status = read_json(status_path)
         task_id = status.get("id", status_path.stem)
@@ -93,12 +104,16 @@ def build_reviewer_payload(run_dir: Path) -> dict:
             claim_issue = "missing_evidence"
         elif status.get("status") == "SUCCESS" and any(item.get("confidence") == "high" and item.get("limitations") for item in task_claims):
             claim_issue = "uncertainty_gap"
+        output_guard = guard_output_artifact(status, artifact_verify)
+        if output_guard["policy_blocked"]:
+            output_guard_failures.append({"task_id": task_id, **output_guard})
         verdict, replan_required = map_verdict(
             status.get("status", "FAILED"),
             status.get("verification_note", ""),
             int(status.get("actual_changed_count", 0)),
             artifact_verify,
             claim_issue,
+            output_guard["policy_blocked"],
         )
         evidence = [
             f"status_file:{status_path.name}",
@@ -112,6 +127,8 @@ def build_reviewer_payload(run_dir: Path) -> dict:
             evidence.append(f"claim_evidence_coverage:{claim_with_evidence}/{len(task_claims)}")
         if claim_issue:
             evidence.append(f"claim_contract_issue:{claim_issue}")
+        for failure in output_guard["guard_failures"]:
+            evidence.append(f"output_guard:{failure}")
         if artifact_verify:
             evidence.append(f"artifact_score:{artifact_verify.get('score', 0.0)}")
             evidence.append(f"artifact_failure_category:{artifact_verify.get('failure_category', 'UNKNOWN')}")
@@ -145,12 +162,14 @@ def build_reviewer_payload(run_dir: Path) -> dict:
                 "evidence": evidence,
                 "repair_action": repair_action,
                 "replan_required": replan_required,
+                "guard_failures": output_guard["guard_failures"],
+                "policy_blocked": output_guard["policy_blocked"],
             }
         )
 
     accepted_task_ids = {str(item["task_id"]) for item in verdicts if item.get("verdict") == "ACCEPTED"}
     claim_contract = validate_claim_contract(claim_ledger, accepted_task_ids)
-    return {
+    payload = {
         "run_id": run_dir.name,
         "verdict_count": len(verdicts),
         "accepted_count": sum(1 for item in verdicts if item["verdict"] == "ACCEPTED"),
@@ -160,6 +179,19 @@ def build_reviewer_payload(run_dir: Path) -> dict:
         "claim_contract": claim_contract,
         "verdicts": verdicts,
     }
+    write_guard_report(
+        run_dir,
+        "output_guard_report.json",
+        {
+            "policy_blocked_count": len(output_guard_failures),
+            "failures": output_guard_failures,
+        },
+    )
+    verdict_errors: list[str] = []
+    for idx, item in enumerate(verdicts):
+        verdict_errors.extend(f"verdicts[{idx}]: {error}" for error in validate_against_schema(item, "reviewer_verdict.schema.json"))
+    append_contract_event(run_dir, "reviewer_verdicts.json", not verdict_errors, verdict_errors, "SCHEMA_INVALID" if verdict_errors else "")
+    return payload
 
 
 def main() -> None:
@@ -170,7 +202,7 @@ def main() -> None:
     payload = build_reviewer_payload(run_dir)
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     if out_file:
-        out_file.write_text(text, encoding="utf-8")
+        write_json(out_file, payload)
     print(text)
 
 

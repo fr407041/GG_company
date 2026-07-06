@@ -6,6 +6,8 @@ import os
 import sys
 from pathlib import Path
 
+from ai_company_contracts import append_contract_event, validate_against_schema, write_json
+
 
 ROLE_ORDER = [
     "meeting_coordinator",
@@ -337,9 +339,17 @@ def main() -> None:
     out_file = Path(sys.argv[2]).resolve() if len(sys.argv) >= 3 else None
     task = sys.argv[3] if len(sys.argv) >= 4 else ""
     payload = build_meeting_decision(run_dir, task)
+    errors = validate_against_schema(payload, "meeting_decision.schema.json")
+    if errors:
+        append_contract_event(run_dir, "meeting_decision.json", False, errors, "SCHEMA_INVALID")
+        payload["meeting_status"] = "MEETING_NEEDS_REPLAN"
+        payload["convergence_reason"] = "Schema validation failed."
+        payload["meeting_minutes"] += "\nValidation: schema invalid."
+    else:
+        append_contract_event(run_dir, "meeting_decision.json", True, [])
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     if out_file:
-        out_file.write_text(text, encoding="utf-8")
+        write_json(out_file, payload)
     print(text)
 
 

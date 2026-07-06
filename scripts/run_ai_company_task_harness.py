@@ -9,6 +9,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from ai_company_contracts import (
+    append_contract_event,
+    guard_input_spec,
+    load_defaults as load_contract_defaults,
+    validate_task_harness_report,
+    write_guard_report,
+)
 from materialize_ai_company_task_run import ROOT, materialize_run, read_json
 from main_agent_memory_guard import run_guard
 from run_ai_company_watchdog import write_heartbeat
@@ -24,7 +31,7 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def load_defaults() -> dict[str, Any]:
-    return read_json(DEFAULTS_PATH)
+    return load_contract_defaults()
 
 
 def run_memory_guard_phase(run_dir: Path, defaults: dict[str, Any], phase: str) -> dict[str, Any]:
@@ -382,6 +389,27 @@ def main() -> None:
     spec_path = Path(args.spec).resolve()
     spec = read_json(spec_path)
     run_dir = materialize_run(spec_path, Path(args.out_root).resolve())
+    input_guard = guard_input_spec(spec, spec_path)
+    write_guard_report(run_dir, "input_guard_report.json", input_guard)
+    if bool(defaults.get("input_guard_enabled", True)) and input_guard.get("blocked"):
+        report = {
+            "spec_id": spec.get("id", "unknown"),
+            "mode": args.mode,
+            "run_dir": str(run_dir),
+            "defaults_file": str(DEFAULTS_PATH),
+            "spec_file": str(spec_path),
+            "kpis": {
+                "accepted_count": 0,
+                "prompt_injection_block_count": len(input_guard.get("flagged_jobs", [])),
+                "failure_family_counts": {input_guard.get("failure_family", "INPUT_POLICY_BLOCKED"): 1},
+            },
+            "expectations": {"checks": {}, "pass_rate": 0.0, "all_passed": False},
+            "overall_status": "fail",
+        }
+        write_json(run_dir / "ai_company" / "task_harness_report.json", report)
+        append_contract_event(run_dir, "task_harness_report.json", True, [])
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return
     write_heartbeat(run_dir, "after_materialize", "running")
     run_memory_guard_phase(run_dir, defaults, "after_materialize")
     run_prefetch_if_needed(spec, run_dir)
@@ -445,6 +473,15 @@ def main() -> None:
         kpis["artifact_verify"] = artifact_verify
         artifact_parsed = artifact_verify.get("parsed", {}) if isinstance(artifact_verify, dict) else {}
         artifact_metrics = artifact_parsed.get("metrics", {}) if isinstance(artifact_parsed, dict) else {}
+        write_guard_report(
+            run_dir,
+            "output_guard_report.json",
+            {
+                "artifact_verify_present": True,
+                "artifact_all_passed": bool(artifact_parsed.get("all_passed", False)),
+                "artifact_failure_category": artifact_parsed.get("failure_category", ""),
+            },
+        )
         kpis["artifact_pass_rate"] = 1.0 if artifact_parsed.get("all_passed", False) else 0.0
         kpis["artifact_score"] = float(artifact_parsed.get("score", 0.0))
         kpis["evidence_coverage_rate"] = float(artifact_metrics.get("evidence_coverage_rate", 0.0))
@@ -469,6 +506,8 @@ def main() -> None:
         "expectations": expectation_report,
         "overall_status": "pass" if expectation_report["all_passed"] else "fail",
     }
+    report_errors = validate_task_harness_report(report)
+    append_contract_event(run_dir, "task_harness_report.json", not report_errors, report_errors, "SCHEMA_INVALID" if report_errors else "")
     report_path = run_dir / "ai_company" / "task_harness_report.json"
     write_json(report_path, report)
     write_heartbeat(run_dir, "complete", "complete")

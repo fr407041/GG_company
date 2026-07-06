@@ -22,6 +22,12 @@ CANONICAL_ROSTER = [
 ]
 
 FAILURE_FAMILY_ORDER = [
+    "FORMAT_INVALID",
+    "SCHEMA_INVALID",
+    "INPUT_POLICY_BLOCKED",
+    "OUTPUT_POLICY_BLOCKED",
+    "WORKER_RUNTIME_MISSING",
+    "PROMPT_INJECTION_SUSPECTED",
     "overflow",
     "router",
     "timeout",
@@ -160,10 +166,17 @@ def _normalize_overall_status(value: Any) -> str:
 
 
 def _derive_failure_family(status: dict[str, Any] | None, verdict: dict[str, Any] | None) -> str | None:
+    status_failure_family = str((status or {}).get("failure_family", "")).strip()
+    if status_failure_family:
+        return status_failure_family
     if verdict:
         verdict_name = str(verdict.get("verdict", "")).upper()
         if verdict_name == "FALSE_SUCCESS_BLOCKED":
             return "false_success_blocked"
+        if verdict_name == "OUTPUT_POLICY_BLOCKED":
+            return "OUTPUT_POLICY_BLOCKED"
+        if verdict_name == "SCHEMA_INVALID":
+            return "SCHEMA_INVALID"
         if verdict_name == "REPLAN_REQUIRED":
             return "replan"
         if verdict_name == "REPAIR_REQUIRED":
@@ -614,6 +627,9 @@ def _summarize_run(run_dir: Path) -> dict[str, Any]:
     reviewer = _load_json(ai_dir / "reviewer_verdicts.json") if (ai_dir / "reviewer_verdicts.json").exists() else {}
     claim_ledger = _load_json(ai_dir / "subagent_claim_ledger.json") if (ai_dir / "subagent_claim_ledger.json").exists() else {}
     watchdog = _load_json(ai_dir / "watchdog_report.json") if (ai_dir / "watchdog_report.json").exists() else {}
+    input_guard = _load_json(ai_dir / "input_guard_report.json") if (ai_dir / "input_guard_report.json").exists() else {}
+    output_guard = _load_json(ai_dir / "output_guard_report.json") if (ai_dir / "output_guard_report.json").exists() else {}
+    contract_report = _load_json(ai_dir / "contract_validation_report.json") if (ai_dir / "contract_validation_report.json").exists() else {}
     plan = _load_json(run_dir / "plan.json") if (run_dir / "plan.json").exists() else {}
     summary = _read_text(run_dir / "worktree" / "summary.md") if (run_dir / "worktree" / "summary.md").exists() else ""
 
@@ -712,6 +728,9 @@ def _summarize_run(run_dir: Path) -> dict[str, Any]:
         },
         "claim_ledger_metrics": claim_ledger.get("metrics", {}),
         "watchdog": watchdog,
+        "input_guard": input_guard,
+        "output_guard": output_guard,
+        "contract_validation": contract_report,
         "meeting": {
             "rounds_used": meeting.get("rounds_used", 0),
             "round_limit": meeting.get("round_limit", 0),

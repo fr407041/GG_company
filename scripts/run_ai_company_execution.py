@@ -7,6 +7,15 @@ import sys
 from pathlib import Path
 from shutil import which
 
+from ai_company_contracts import (
+    append_contract_event,
+    clean_json_payload,
+    ensure_failure_family,
+    load_defaults,
+    validate_status_payload,
+    write_guard_report,
+    write_json,
+)
 from subagent_claim_ledger import write_claim_ledger
 
 
@@ -19,10 +28,6 @@ CLAIM_LEDGER_NAME = "subagent_claim_ledger.json"
 
 def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
-
-
-def write_json(path: Path, payload: dict) -> None:
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def read_memory_checkpoint(run_dir: Path) -> dict:
@@ -60,19 +65,41 @@ def checkpoint_reassignment_note(run_dir: Path) -> str:
 def resolve_worker_script(script_name: str, local_scripts_dir: Path) -> Path:
     env_dir = os.environ.get("AI_COMPANY_WORKER_SCRIPTS_DIR", "").strip()
     candidates: list[Path] = []
+    candidates.append(local_scripts_dir / script_name)
     if env_dir:
         candidates.append(Path(env_dir) / script_name)
-    candidates.append(local_scripts_dir / script_name)
     candidates.append(DELIVERABLES_SCRIPTS_DIR / script_name)
     for candidate in candidates:
         if candidate.exists():
             return candidate
-    return local_scripts_dir / script_name
+    return Path()
+
+
+def finalize_status(run_dir: Path, status_path: Path, payload: dict) -> Path:
+    errors = validate_status_payload(payload)
+    payload["contract_valid"] = not errors
+    if errors:
+        payload["status"] = "FAILED"
+        payload["failure_family"] = ensure_failure_family(payload.get("failure_family", "SCHEMA_INVALID"))
+    write_json(status_path, payload)
+    append_contract_event(
+        run_dir,
+        f"results/{status_path.name}",
+        not errors,
+        errors,
+        payload.get("failure_family", "SCHEMA_INVALID") if errors else "",
+    )
+    return status_path
 
 
 def ensure_status_file(job: dict, status_path: Path) -> Path:
     if status_path.exists():
-        return status_path
+        payload = read_json(status_path)
+        payload.setdefault("raw_output_parse_status", "exact")
+        payload.setdefault("format_cleaning_applied", False)
+        payload.setdefault("contract_valid", True)
+        payload.setdefault("failure_family", "")
+        return finalize_status(Path(job.get("run_dir", status_path.parents[1])), status_path, payload)
 
     prefix = status_path.with_suffix("")
     raw_path = prefix.with_suffix(".raw.txt")
@@ -137,9 +164,16 @@ def ensure_status_file(job: dict, status_path: Path) -> Path:
         "test_exit_code": 0,
         "exit_code": 1 if status == "FAILED" else 0,
         "duration_sec": 0,
+        "raw_output_parse_status": "derived_from_logs",
+        "format_cleaning_applied": False,
+        "contract_valid": True,
+        "failure_family": "" if status not in {"FAILED", "CHILD_TIMEOUT", "CHILD_LIMIT_REACHED", "ROUTER_ERROR", "OVERFLOW_DETECTED", "NEEDS_REPLAN"} else (
+            "WORKER_RUNTIME_MISSING" if "runtime" in note else
+            "FORMAT_INVALID" if "status metadata" in note else
+            ""
+        ),
     }
-    write_json(status_path, payload)
-    return status_path
+    return finalize_status(Path(job.get("run_dir", status_path.parents[1])), status_path, payload)
 
 
 def choose_worker_script(scripts_dir: Path, job: dict) -> Path:
@@ -291,7 +325,12 @@ def write_mock_status(run_dir: Path, job: dict, status: str, verification_note: 
         "actual_changed_count": len(actual_changed_files),
         "verification_note": verification_note,
         "subagent_summary": "Mock worker produced a bounded result for reviewer validation.",
-        "key_claims": [{"claim": verification_note if status != "SUCCESS" else "Mock worker completed the assigned bounded task successfully."}],
+        "key_claims": [
+            {
+                "claim": verification_note if status != "SUCCESS" else "Mock worker completed the assigned bounded task successfully.",
+                "evidence_refs": [str(raw_file.name)],
+            }
+        ],
         "confidence": "medium" if status == "SUCCESS" else "low",
         "limitations": [] if status == "SUCCESS" else [verification_note],
         "handoff_next": "Use the claim ledger entry and changed artifact for review.",
@@ -304,13 +343,73 @@ def write_mock_status(run_dir: Path, job: dict, status: str, verification_note: 
         "test_exit_code": 0,
         "exit_code": 0,
         "duration_sec": 1,
+        "raw_output_parse_status": "mock",
+        "format_cleaning_applied": False,
+        "contract_valid": True,
+        "failure_family": "",
     }
-    write_json(status_file, payload)
-    return status_file
+    return finalize_status(run_dir, status_file, payload)
+
+
+def write_runtime_missing_status(run_dir: Path, job: dict, worker_script: Path) -> Path:
+    results_dir = run_dir / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    status_path = results_dir / f"{job['id']}.status.json"
+    payload = {
+        "id": job["id"],
+        "status": "FAILED",
+        "scope_path": job.get("scope_path", ""),
+        "require_change": job.get("require_change", False),
+        "files": job.get("files", []),
+        "owner_role": job.get("owner_role", ""),
+        "actual_changed_files": [],
+        "actual_changed_count": 0,
+        "verification_note": f"worker runtime missing: {worker_script.name or 'unresolved worker'}",
+        "subagent_summary": "worker runtime missing",
+        "key_claims": [{"claim": "Worker runtime is unavailable for this execution."}],
+        "confidence": "low",
+        "limitations": ["Worker runtime unavailable"],
+        "handoff_next": "Install or point AI_COMPANY_WORKER_SCRIPTS_DIR to worker scripts before rerun.",
+        "raw_file": str(results_dir / f"{job['id']}.raw.txt"),
+        "exec_log_file": str(results_dir / f"{job['id']}.exec.log"),
+        "success_check": job.get("success_check", ""),
+        "test_command": job.get("test_command", ""),
+        "test_executed_command": "",
+        "test_output_file": str(results_dir / f"{job['id']}.test.txt"),
+        "test_exit_code": 1,
+        "exit_code": 1,
+        "duration_sec": 0,
+        "raw_output_parse_status": "worker_runtime_missing",
+        "format_cleaning_applied": False,
+        "contract_valid": True,
+        "failure_family": "WORKER_RUNTIME_MISSING",
+    }
+    return finalize_status(run_dir, status_path, payload)
+
+
+def normalize_status_artifact(run_dir: Path, job: dict, status_path: Path) -> Path:
+    payload = read_json(status_path)
+    raw_file = Path(str(payload.get("raw_file", "")))
+    raw_text = raw_file.read_text(encoding="utf-8", errors="ignore") if raw_file.exists() else ""
+    cleaned = clean_json_payload(raw_text) if raw_text else {"parse_status": "missing", "format_cleaning_applied": False}
+    payload.setdefault("id", job["id"])
+    payload.setdefault("scope_path", job.get("scope_path", ""))
+    payload.setdefault("files", job.get("files", []))
+    payload.setdefault("owner_role", job.get("owner_role", ""))
+    payload.setdefault("verification_note", "")
+    payload["raw_output_parse_status"] = cleaned.get("parse_status", "missing")
+    payload["format_cleaning_applied"] = bool(cleaned.get("format_cleaning_applied", False))
+    payload.setdefault("failure_family", "")
+    if payload["status"] == "SUCCESS" and cleaned.get("parse_status") in {"invalid_json", "truncated_json"}:
+        payload["status"] = "FAILED"
+        payload["failure_family"] = "FORMAT_INVALID"
+        payload["verification_note"] = (str(payload.get("verification_note", "")).strip() + " | raw output malformed").strip(" |")
+    return finalize_status(run_dir, status_path, payload)
 
 
 def execute_job(run_dir: Path, scripts_dir: Path, job_path: Path) -> Path:
     job = read_json(job_path)
+    job["run_dir"] = str(run_dir)
     results_dir = run_dir / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
     status_path = results_dir / f"{job['id']}.status.json"
@@ -327,12 +426,17 @@ def execute_job(run_dir: Path, scripts_dir: Path, job_path: Path) -> Path:
         return write_mock_status(run_dir, job, mock_status, note_map.get(mock_status, "mock status"), changed_count)
 
     worker_script = choose_worker_script(scripts_dir, job)
+    defaults = load_defaults()
+    runtime_required = bool(defaults.get("worker_runtime_required", True))
+    if runtime_required and (not worker_script or not worker_script.exists()):
+        return write_runtime_missing_status(run_dir, job, worker_script)
     if should_use_docker_workers():
         run_worker_via_docker(run_dir, worker_script, job_path)
     else:
         bash_bin = which("bash") or "bash"
         subprocess.run([bash_bin, str(worker_script), str(job_path)], cwd=run_dir, check=False)
-    return ensure_status_file(job, status_path)
+    status_path = ensure_status_file(job, status_path)
+    return normalize_status_artifact(run_dir, job, status_path)
 
 
 def run_reviewer(run_dir: Path, scripts_dir: Path) -> dict:
@@ -370,6 +474,12 @@ def create_reassignment_job(run_dir: Path, source_job: dict, verdict: dict, atte
 def build_summary(run_dir: Path, execution_log: list[dict], reviewer: dict, reassignment_count: int) -> dict:
     accepted = reviewer.get("accepted_count", 0)
     total = reviewer.get("verdict_count", 0)
+    failure_families: dict[str, int] = {}
+    contract_events = read_json(run_dir / "ai_company" / "contract_validation_report.json").get("events", [])
+    for event in contract_events:
+        family = event.get("failure_family", "")
+        if family:
+            failure_families[family] = failure_families.get(family, 0) + 1
     return {
         "run_id": run_dir.name,
         "execution_jobs_run": len(execution_log),
@@ -378,6 +488,8 @@ def build_summary(run_dir: Path, execution_log: list[dict], reviewer: dict, reas
         "reviewer_verdict_count": total,
         "acceptance_rate": round(accepted / total, 3) if total else 0.0,
         "execution_log": execution_log,
+        "contract_invalid_count": sum(1 for event in contract_events if not event.get("ok", False)),
+        "failure_families": failure_families,
     }
 
 
