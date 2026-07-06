@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "converged_small_scope",
+      "task": "Create a bounded SENS evidence review meeting and dispatch two focused tasks.",
+      "strategy": "Use bounded evidence verification and synthesis before review.",
+      "jobs": [
+        {
+          "id": "job-001",
+          "title": "Verify evidence anchors",
+          "instruction": "Research and verify the latest SENS evidence anchors.",
+          "files": ["a.md", "b.json"],
+          "success_check": "Evidence anchors are grounded."
+        },
+        {
+          "id": "job-002",
+          "title": "Synthesize verdict",
+          "instruction": "Synthesize a bounded verdict from the evidence.",
+          "files": ["c.json", "d.md"],
+          "success_check": "Verdict stays within evidence."
+        }
+      ],
+      "expect_status": "MEETING_READY",
+      "expect_rounds_lte": 3
+    },
+    {
+      "id": "broad_scope_narrowed",
+      "task": "Review a broad implementation request but narrow every task before dispatch.",
+      "strategy": "Prefer narrowing over broad execution.",
+      "jobs": [
+        {
+          "id": "job-001",
+          "title": "Broad backend task",
+          "instruction": "Implement a backend fix with bounded scope.",
+          "files": ["a.py", "b.py", "c.py", "d.py", "e.py"],
+          "success_check": "Only bounded files remain in scope."
+        }
+      ],
+      "expect_status": "MEETING_READY",
+      "expect_rounds_lte": 3
+    },
+    {
+      "id": "empty_scope_requires_replan",
+      "task": "Discuss an under-specified task that has no actual file scope.",
+      "strategy": "Fail fast and request replan when no safe scope exists.",
+      "jobs": [
+        {
+          "id": "job-001",
+          "title": "Unknown task",
+          "instruction": "Decide what to do without any concrete file scope.",
+          "files": [],
+          "success_check": "Do not dispatch without scope."
+        }
+      ],
+      "expect_status": "MEETING_NEEDS_REPLAN",
+      "expect_rounds_lte": 3
+    },
+    {
+      "id": "repeat_proposal_loop_guard",
+      "task": "Handle a repeated unresolved proposal safely.",
+      "strategy": "Stop at the round limit if the same unresolved proposal repeats.",
+      "jobs": [
+        {
+          "id": "job-001",
+          "title": "Unresolved task",
+          "instruction": "Decide what to do without any concrete file scope.",
+          "files": [],
+          "success_check": "Do not dispatch without scope."
+        }
+      ],
+      "summary_metrics": {
+        "same_failure_again": 1
+      },
+      "expect_status": "MEETING_NEEDS_REPLAN",
+      "expect_rounds_lte": 3
+    }
+  ]
+}

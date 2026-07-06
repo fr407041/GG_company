@@ -1,80 +1,93 @@
-const fs = require('fs');
-const path = require('path');
+#!/usr/bin/env node
+const fs = require("fs");
+const path = require("path");
+
+const ROOT = path.resolve(__dirname, "..");
 
 function readJson(relativePath) {
-  return JSON.parse(fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8'));
+  return JSON.parse(fs.readFileSync(path.join(ROOT, relativePath), "utf8"));
 }
 
 function assert(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
+  if (!condition) throw new Error(message);
 }
 
-const requiredFiles = [
-  'docs/goals/ai_company_autopilot_goal.md',
-  'configs/ai_company/kpi.autopilot.json',
-  'configs/ai_company/test_matrix.autopilot.json',
-  'configs/ai_company/event_schema.autopilot.json',
-  'configs/ai_company/pipeline_rules.autopilot.json',
-  'configs/ai_company/meeting_triggers.autopilot.json',
-  'configs/ai_company/agent_assignment_rules.autopilot.json',
-  'scripts/check_ai_company_autopilot_goal.js',
-  'docs/common_research_orchestrator_zh-TW.md',
-  '.claude/skills/research-task-orchestrator/SKILL.md',
-  'agent_os_mvp/backend/app/services/ai_company_monitor.py',
-  'agent_os_mvp/frontend/src/App.jsx'
-];
-
-for (const file of requiredFiles) {
-  assert(fs.existsSync(path.join(process.cwd(), file)), `Missing required file: ${file}`);
+function ensureFile(relativePath) {
+  assert(fs.existsSync(path.join(ROOT, relativePath)), `Missing required file: ${relativePath}`);
 }
 
-const kpi = readJson('configs/ai_company/kpi.autopilot.json');
-const matrix = readJson('configs/ai_company/test_matrix.autopilot.json');
-const eventSchema = readJson('configs/ai_company/event_schema.autopilot.json');
-const pipelineRules = readJson('configs/ai_company/pipeline_rules.autopilot.json');
-const meetingRules = readJson('configs/ai_company/meeting_triggers.autopilot.json');
-const agentRules = readJson('configs/ai_company/agent_assignment_rules.autopilot.json');
-const goalDoc = fs.readFileSync(path.join(process.cwd(), 'docs/goals/ai_company_autopilot_goal.md'), 'utf8');
-const skillDoc = fs.readFileSync(path.join(process.cwd(), '.claude/skills/research-task-orchestrator/SKILL.md'), 'utf8');
-const guiDoc = fs.readFileSync(path.join(process.cwd(), 'agent_os_mvp/frontend/src/App.jsx'), 'utf8');
-const monitorDoc = fs.readFileSync(path.join(process.cwd(), 'agent_os_mvp/backend/app/services/ai_company_monitor.py'), 'utf8');
+function main() {
+  const requiredFiles = [
+    "docs/goals/ai_company_autopilot_goal.md",
+    "configs/ai_company/kpi.autopilot.json",
+    "configs/ai_company/test_matrix.autopilot.json",
+    "configs/ai_company/event_schema.autopilot.json",
+    "configs/ai_company/pipeline_rules.autopilot.json",
+    "configs/ai_company/meeting_triggers.autopilot.json",
+    "configs/ai_company/agent_assignment_rules.autopilot.json",
+    "scripts/check_ai_company_autopilot_goal.js",
+    "docs/common_research_orchestrator_zh-TW.md",
+    ".claude/skills/research-task-orchestrator/SKILL.md",
+    "agent_os_mvp/backend/app/services/ai_company_monitor.py",
+    "agent_os_mvp/frontend/src/App.jsx"
+  ];
+  requiredFiles.forEach(ensureFile);
 
-const kpiCategories = Object.keys(kpi.kpi_categories || {});
-assert(kpiCategories.includes('automation'), 'KPI missing automation');
-assert(kpiCategories.includes('stability'), 'KPI missing stability');
-assert(kpiCategories.includes('traceability'), 'KPI missing traceability');
-assert(kpiCategories.includes('quality'), 'KPI missing quality');
-assert(kpiCategories.includes('usability'), 'KPI missing usability');
+  const kpi = readJson("configs/ai_company/kpi.autopilot.json");
+  const matrix = readJson("configs/ai_company/test_matrix.autopilot.json");
+  const eventSchema = readJson("configs/ai_company/event_schema.autopilot.json");
+  const pipelineRules = readJson("configs/ai_company/pipeline_rules.autopilot.json");
+  const meetingRules = readJson("configs/ai_company/meeting_triggers.autopilot.json");
+  const agentRules = readJson("configs/ai_company/agent_assignment_rules.autopilot.json");
+  const goalDoc = fs.readFileSync(path.join(ROOT, "docs/goals/ai_company_autopilot_goal.md"), "utf8").toLowerCase();
+  const skillDoc = fs.readFileSync(path.join(ROOT, ".claude/skills/research-task-orchestrator/SKILL.md"), "utf8").toLowerCase();
+  const gui = fs.readFileSync(path.join(ROOT, "agent_os_mvp/frontend/src/App.jsx"), "utf8");
+  const monitor = fs.readFileSync(path.join(ROOT, "agent_os_mvp/backend/app/services/ai_company_monitor.py"), "utf8");
 
-assert(Array.isArray(matrix.cases) && matrix.cases.length >= 8, 'Test matrix must contain at least 8 cases');
-assert((eventSchema.required_events || []).includes('pipeline_attached'), 'Event schema must include pipeline_attached');
-assert(Array.isArray(pipelineRules.pipelines) && pipelineRules.pipelines.length >= 4, 'Need at least 4 pipelines');
-assert(Array.isArray(meetingRules.trigger_rules) && meetingRules.trigger_rules.length >= 4, 'Need at least 4 meeting triggers');
-assert(Array.isArray(agentRules.assignment_rules) && agentRules.assignment_rules.length >= 4, 'Need at least 4 agent assignment rules');
+  ["automation", "stability", "traceability", "quality", "usability"].forEach((key) => {
+    assert(kpi.categories && kpi.categories[key], `KPI category missing: ${key}`);
+  });
+  assert(Array.isArray(matrix.cases) && matrix.cases.length >= 8, "Autopilot test matrix must contain at least 8 cases.");
+  assert(Array.isArray(eventSchema.required_event_types) && eventSchema.required_event_types.includes("pipeline_attached"), "Event schema missing required event types.");
+  assert(Array.isArray(pipelineRules.pipelines) && pipelineRules.pipelines.length >= 4, "Pipeline rules must define at least 4 pipelines.");
+  assert(Array.isArray(meetingRules.trigger_rules) && meetingRules.trigger_rules.length >= 4, "Meeting trigger rules are incomplete.");
+  assert(Array.isArray(agentRules.rules) && agentRules.rules.length >= 4, "Agent assignment rules are incomplete.");
 
-assert(goalDoc.includes('current status'), 'Goal doc must mention current status');
-assert(goalDoc.includes('active agents'), 'Goal doc must mention active agents');
-assert(goalDoc.includes('result trustworthiness'), 'Goal doc must mention result trustworthiness');
+  ["current status", "active agents", "result trustworthiness"].forEach((phrase) => {
+    assert(goalDoc.includes(phrase), `Goal doc missing phrase: ${phrase}`);
+  });
 
-assert(skillDoc.toLowerCase().includes('simple web gui'), 'Skill must mention simple web gui');
-assert(skillDoc.toLowerCase().includes('sqlite'), 'Skill must mention SQLite');
-assert(skillDoc.toLowerCase().includes('three primary sections'), 'Skill must mention three primary sections');
+  ["simple web gui", "sqlite", "three primary sections"].forEach((phrase) => {
+    assert(skillDoc.includes(phrase), `Skill doc missing phrase: ${phrase}`);
+  });
 
-assert(guiDoc.includes('現在狀態'), 'GUI must include 現在狀態');
-assert(guiDoc.includes('誰在工作'), 'GUI must include 誰在工作');
-assert(guiDoc.includes('結果可信嗎'), 'GUI must include 結果可信嗎');
+  ["現在狀態", "誰在工作", "結果可信嗎"].forEach((phrase) => {
+    assert(gui.includes(phrase), `Simple GUI missing section: ${phrase}`);
+  });
 
-assert(monitorDoc.includes('sync_ai_company_runs'), 'Monitor must include sync_ai_company_runs');
-assert(monitorDoc.includes('ai_company_runs'), 'Monitor must reference ai_company_runs');
-assert(monitorDoc.includes('collect_ai_company_monitor'), 'Monitor must include collect_ai_company_monitor');
+  ["sync_ai_company_runs", "ai_company_runs", "collect_ai_company_monitor"].forEach((phrase) => {
+    assert(monitor.includes(phrase), `Monitor backend missing capability marker: ${phrase}`);
+  });
 
-console.log(JSON.stringify({
-  status: 'pass',
-  kpi_categories: kpiCategories.length,
-  test_cases: matrix.cases.length,
-  pipelines: pipelineRules.pipelines.length,
-  meeting_triggers: meetingRules.trigger_rules.length,
-  default_screen_sections: 3
-}, null, 2));
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        status: "pass",
+        kpi_categories: 5,
+        test_cases: matrix.cases.length,
+        pipelines: pipelineRules.pipelines.length,
+        meeting_triggers: meetingRules.trigger_rules.length,
+        default_screen_sections: 3
+      },
+      null,
+      2
+    )}\n`
+  );
+}
+
+try {
+  main();
+} catch (error) {
+  console.error(error.message || String(error));
+  process.exit(1);
+}

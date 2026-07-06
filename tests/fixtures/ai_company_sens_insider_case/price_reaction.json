@@ -1,0 +1,10 @@
+{
+  "ticker": "SENS",
+  "as_of_date": "",
+  "windows": [
+    "1d",
+    "5d",
+    "20d"
+  ],
+  "reactions": []
+}

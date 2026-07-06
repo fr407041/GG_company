@@ -1,0 +1,54 @@
+{
+  "id": "complex-coding-mock-success",
+  "goal": "Validate the orchestration shape of a bounded coding workflow on a real bug-fix repository fixture.",
+  "strategy": "Use the same bounded coding task split as the live case, but force mock success so orchestration KPIs can be validated deterministically.",
+  "scope_subdir": "tests/fixtures/ai_company_complex_task_repo",
+  "scope_copy_from": "tests/fixtures/ai_company_complex_task_repo",
+  "jobs": [
+    {
+      "id": "job-001",
+      "title": "Verify amount-normalization requirements",
+      "instruction": "Research and verify the expected normalization rules and the current failing edge cases from the selected files.",
+      "files": [
+        "README.md",
+        "invoice_tools/normalize.py",
+        "tests/test_normalize.py"
+      ],
+      "success_check": "The rules and failing edge cases are grounded in the selected files."
+    },
+    {
+      "id": "job-002",
+      "title": "Implement signed amount normalization fix",
+      "instruction": "Fix the normalization bug so parenthesized negative amounts and whitespace-heavy negative amounts are handled correctly, then run the assigned unit tests.",
+      "files": [
+        "invoice_tools/normalize.py",
+        "tests/test_normalize.py"
+      ],
+      "success_check": "The selected tests pass and the implementation remains bounded to the assigned files.",
+      "require_change": true,
+      "test_command": "python3 -m unittest tests.test_normalize -v",
+      "mock_status": "SUCCESS"
+    },
+    {
+      "id": "job-003",
+      "title": "Synthesize bounded implementation outcome",
+      "instruction": "Synthesize a concise implementation outcome from the verified rules and the code change result without drifting outside the selected files.",
+      "files": [
+        "README.md",
+        "invoice_tools/normalize.py",
+        "tests/test_normalize.py"
+      ],
+      "success_check": "The implementation summary stays grounded in the selected files and test result."
+    }
+  ],
+  "expectations": {
+    "meeting_status": "MEETING_READY",
+    "min_reviewer_verdict_count": 3,
+    "min_accepted_count": 3,
+    "max_reassignment_count": 0,
+    "max_execution_jobs_run": 3,
+    "require_bounded_scope_rate": 1.0,
+    "require_status_file_coverage_rate": 1.0,
+    "require_loop_bounded": true
+  }
+}

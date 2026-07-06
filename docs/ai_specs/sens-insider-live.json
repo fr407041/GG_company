@@ -1,0 +1,45 @@
+{
+  "id": "sens-insider-live",
+  "goal": "Investigate recent insider trading activity for SENS, compare it with subsequent stock-price movement, and produce a concise dated summary through the ai-company flow.",
+  "strategy": "Prefetch public SEC and price evidence deterministically, then use a bounded Claude summary job so the child does not need to browse or recalculate from scratch.",
+  "scope_subdir": "tests/fixtures/ai_company_sens_insider_case",
+  "scope_copy_from": "tests/fixtures/ai_company_sens_insider_case",
+  "prep_command": "python3 {root}/scripts/prefetch_sens_insider_case.py {scope_path}",
+  "post_verify_command": "python3 {root}/scripts/verify_sens_summary_artifact.py {scope_path}",
+  "jobs": [
+    {
+      "id": "job-001",
+      "title": "Write final SENS insider summary",
+      "instruction": "Write summary.md as concise markdown only. Use exactly 3 short bullet points and then 1 short takeaway sentence. Mention the dated 2026-03-13 and 2026-05-12 open-market-buy reactions, mention that 2026-07-01 compensation grants are not necessarily bullish signals, and state uncertainty clearly. Keep the total output under 120 words and do not add an intro or outro.",
+      "files": [
+        "summary.md"
+      ],
+      "worker_template": "summary_markdown",
+      "template_context_files": [
+        "summary_compact_context.txt"
+      ],
+      "success_check": "summary.md concisely summarizes recent insider activity and dated price reactions using the prefetched evidence context.",
+      "require_change": true,
+      "test_command": ""
+    }
+  ],
+  "expectations": {
+    "meeting_status": "MEETING_READY",
+    "min_reviewer_verdict_count": 1,
+    "min_accepted_count": 1,
+    "max_reassignment_count": 1,
+    "max_execution_jobs_run": 2,
+    "require_bounded_scope_rate": 1.0,
+    "require_status_file_coverage_rate": 1.0,
+    "require_loop_bounded": true,
+    "require_post_verify_all_passed": true,
+    "min_artifact_score": 1.0,
+    "require_evidence_gate_passed": true,
+    "require_summary_fidelity_passed": true,
+    "min_evidence_coverage_rate": 0.9,
+    "require_dated_claim_coverage": true,
+    "require_price_reaction_coverage": true,
+    "require_uncertainty_statement_presence": true,
+    "require_no_reviewer_quality_gap": true
+  }
+}

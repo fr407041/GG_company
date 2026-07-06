@@ -1,84 +1,89 @@
-# GG_company
+﻿# GG_company
 
-A minimal AI-company autopilot package for `Claude Code + router + open-source model` usage.
+Company-ready AI-company orchestration package for `Claude Code + Claude Code Router + open-source LLM` on Ubuntu.
 
-This repository now includes a practical dashboard bundle under `agent_os_mvp/` so a company Ubuntu or Windows environment can:
+This repository intentionally excludes Docker test assets, local model downloads, runtime logs, `results/`, `tmp/`, `.venv`, and `node_modules`.
 
-- run `Claude Code + Claude Code Router` as usual
-- keep task results under `results/ai_company_task_harness`
-- launch a small FastAPI + SQLite + React dashboard
-- review meeting output, agent assignment, alert signals, and artifact checks from the browser
+## What is included
 
-## Main Folders
-
-- `agent_os_mvp/`
-  - lightweight dashboard package
-  - FastAPI backend
-  - Vite + React frontend
-  - Windows startup helpers
-  - Linux startup helpers
+- `.claude/skills/research-task-orchestrator/`
+  - main AI-company skill
+  - bundled dashboard source under `assets/agent_os_mvp/`
+  - dashboard install/start/stop/smoke scripts
+- `scripts/`
+  - task harness
+  - meeting / execution / reviewer workers
+  - watchdog
+  - memory guard
+  - claim ledger
+  - validation helpers
 - `configs/ai_company/`
-  - autopilot rules, KPI spec, and test matrix
+  - task defaults
+  - schemas
+  - KPI and assignment rules
+- `agent_os_mvp/`
+  - standalone dashboard source for development or direct launch
 - `docs/`
-  - installation, usage, and goal docs
-- `.claude/`
-  - project-local skill and goal manifest
+  - Chinese usage and validation docs
+- `tests/`
+  - regression tests for watchdog, claim ledger, memory guard, and orchestration contracts
 
-## Start Here
+## Company Ubuntu quick install
 
-- English package overview:
-  - `agent_os_mvp/README.md`
-- Chinese install and usage guide:
-  - `agent_os_mvp/README.zh-TW.md`
+Copy or keep this repository in the project that already has Claude Code + Claude Code Router configured.
 
-## Dashboard Capabilities
-
-The dashboard is designed to visualize run artifacts that already exist, not to replace `claude` or `ccr`.
-
-It shows:
-
-- latest run status
-- meeting summary
-- active agents
-- alert signals such as overflow, router error, timeout, and artifact regression
-- summary output and artifact verification checks
-- prompt, raw output, and execution logs
-
-## Quick Start
-
-### Backend
+Install dashboard from the skill package:
 
 ```bash
-cd agent_os_mvp/backend
-pip install -r requirements.txt
-uvicorn app.main:app --host 127.0.0.1 --port 8010
+bash .claude/skills/research-task-orchestrator/scripts/install_dashboard.sh
 ```
 
-### Frontend
+Start dashboard:
 
 ```bash
-cd agent_os_mvp/frontend
-npm install
-VITE_API_BASE_URL=http://127.0.0.1:8010 npm run dev -- --host 127.0.0.1 --port 5174
+bash .claude/skills/research-task-orchestrator/scripts/start_dashboard.sh
 ```
 
 Open:
 
-- `http://127.0.0.1:5174/`
+```text
+http://127.0.0.1:5174
+```
 
-## Company Usage Model
+Backend health:
 
-Recommended flow:
+```text
+http://127.0.0.1:8010/health
+```
 
-1. install and validate `Claude Code` and `Claude Code Router`
-2. run the task orchestration with your open-source model or router upstream
-3. keep results under `results/ai_company_task_harness`
-4. start `agent_os_mvp`
-5. inspect run health and trustworthiness from the web UI
+## Run a minimal mock flow
 
-## Notes
+```bash
+python3 scripts/run_ai_company_task_harness.py docs/ai_specs/common-research-summary-example.json --mode mock
+python3 scripts/run_ai_company_watchdog.py --once
+```
 
-- do not commit `.venv`, `node_modules`, `dist`, or runtime logs
-- the dashboard does not download models
-- the dashboard does not modify your router config
-- it only reads existing artifacts and visualizes them
+Run artifacts are written to:
+
+```text
+results/ai_company_task_harness/
+```
+
+The dashboard reads that folder when launched in the same project root.
+
+## Skill usage from Claude Code
+
+Example prompts:
+
+```text
+Use the research-task-orchestrator skill to install the dashboard.
+Use the research-task-orchestrator skill to run this bounded task and show the latest run in the dashboard.
+Use the research-task-orchestrator skill to monitor the latest run with the watchdog.
+```
+
+## Safety notes
+
+- Do not commit real API keys or passwords.
+- Use dummy keys or runtime environment variables only.
+- This package does not install Claude Code, Claude Code Router, or any model.
+- This package assumes your company Ubuntu environment already has router/open-source LLM access.

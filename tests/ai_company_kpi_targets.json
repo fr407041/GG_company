@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "targets": {
+    "min_observed_orchestrator_runs": 10,
+    "min_failure_case_scripts": 12,
+    "min_scenario_pass_rate": 0.85,
+    "min_critical_guard_coverage_rate": 1.0,
+    "min_historical_readiness_score": 90.0,
+    "max_task_scope_files": 3,
+    "require_nonempty_raw_output": true,
+    "require_artifact_bundle": true
+  }
+}

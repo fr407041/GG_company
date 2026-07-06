@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "execution_success_chain",
+      "meeting": {
+        "meeting_id": "exec-001",
+        "meeting_status": "MEETING_READY",
+        "goal": "Run a bounded research and synthesis chain.",
+        "task_assignments": [
+          {
+            "task_id": "job-001",
+            "owner_role": "research_agent",
+            "scope": ["evidence.json"],
+            "depends_on": [],
+            "acceptance_criteria": ["Research evidence is verified."],
+            "fallback_plan": "Replan narrowly."
+          },
+          {
+            "task_id": "job-002",
+            "owner_role": "synthesis_agent",
+            "scope": ["analysis.md"],
+            "depends_on": ["job-001"],
+            "acceptance_criteria": ["Synthesis stays grounded."],
+            "fallback_plan": "Replan narrowly."
+          },
+          {
+            "task_id": "job-001-review",
+            "owner_role": "reviewer_worker",
+            "scope": ["evidence.json"],
+            "depends_on": ["job-001"],
+            "acceptance_criteria": ["Artifacts exist."],
+            "fallback_plan": "Repair artifacts."
+          },
+          {
+            "task_id": "job-002-review",
+            "owner_role": "reviewer_worker",
+            "scope": ["analysis.md"],
+            "depends_on": ["job-002"],
+            "acceptance_criteria": ["Artifacts exist."],
+            "fallback_plan": "Repair artifacts."
+          }
+        ]
+      },
+      "jobs": [
+        {
+          "id": "job-001",
+          "title": "Verify evidence",
+          "instruction": "Research the evidence only.",
+          "files": ["evidence.json"],
+          "success_check": "Research evidence is verified.",
+          "mock_status": "SUCCESS"
+        },
+        {
+          "id": "job-002",
+          "title": "Synthesize analysis",
+          "instruction": "Synthesize from bounded evidence only.",
+          "files": ["analysis.md"],
+          "success_check": "Synthesis stays grounded.",
+          "mock_status": "SUCCESS"
+        }
+      ],
+      "expect_reassignment_count": 0,
+      "expect_acceptance_rate": 1.0
+    },
+    {
+      "id": "execution_reassignment_chain",
+      "meeting": {
+        "meeting_id": "exec-002",
+        "meeting_status": "MEETING_READY",
+        "goal": "Trigger reviewer-driven reassignment.",
+        "task_assignments": [
+          {
+            "task_id": "job-001",
+            "owner_role": "research_agent",
+            "scope": ["notes.md"],
+            "depends_on": [],
+            "acceptance_criteria": ["Research result must be usable."],
+            "fallback_plan": "Reassign narrowly."
+          },
+          {
+            "task_id": "job-001-review",
+            "owner_role": "reviewer_worker",
+            "scope": ["notes.md"],
+            "depends_on": ["job-001"],
+            "acceptance_criteria": ["Artifacts exist."],
+            "fallback_plan": "Repair artifacts."
+          }
+        ]
+      },
+      "jobs": [
+        {
+          "id": "job-001",
+          "title": "Research notes",
+          "instruction": "Research and summarize.",
+          "files": ["notes.md"],
+          "success_check": "Research result must be usable.",
+          "mock_status": "NEEDS_REPLAN"
+        }
+      ],
+      "expect_reassignment_count": 1,
+      "expect_acceptance_rate": 0.5
+    }
+  ]
+}

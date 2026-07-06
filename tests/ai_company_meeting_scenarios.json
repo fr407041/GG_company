@@ -1,0 +1,55 @@
+{
+  "version": 2,
+  "scenarios": [
+    {
+      "id": "meeting_schema_valid",
+      "goal": "會議輸出必須符合 schema",
+      "success_metric": "meeting_plan_valid_rate"
+    },
+    {
+      "id": "meeting_minutes_present",
+      "goal": "每次會議都要有 minutes",
+      "success_metric": "meeting_minutes_presence_rate"
+    },
+    {
+      "id": "discussion_log_recorded",
+      "goal": "多 agent 討論過程要被完整記錄",
+      "success_metric": "discussion_log_coverage_rate"
+    },
+    {
+      "id": "meeting_assignment_complete",
+      "goal": "每個 task 都有 owner/scope/acceptance/fallback",
+      "success_metric": "task_assignment_clarity_rate"
+    },
+    {
+      "id": "meeting_bounded_scope",
+      "goal": "每個 task scope 不超過 3 個檔案",
+      "success_metric": "bounded_task_rate"
+    },
+    {
+      "id": "meeting_converges",
+      "goal": "多 agent 會議要能在 round limit 內收斂",
+      "success_metric": "meeting_convergence_rate"
+    },
+    {
+      "id": "meeting_loop_guard",
+      "goal": "重複提案或 unresolved risk 時，會議會停並回 NEEDS_REPLAN",
+      "success_metric": "loop_guard_effectiveness_rate"
+    },
+    {
+      "id": "reviewer_independent_verdict",
+      "goal": "reviewer 仍維持獨立驗收 verdict",
+      "success_metric": "reviewer_artifact_coverage"
+    },
+    {
+      "id": "reviewer_false_success_block",
+      "goal": "reviewer 能擋下假成功",
+      "success_metric": "false_success_block_rate"
+    },
+    {
+      "id": "owner_reassignment_recovery",
+      "goal": "owner fail 或 scope 錯誤時可重新規劃",
+      "success_metric": "reassignment_recovery_rate"
+    }
+  ]
+}

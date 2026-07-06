@@ -1,0 +1,13 @@
+{
+  "min_words": 45,
+  "max_words": 130,
+  "min_bullets": 3,
+  "min_numeric_mentions": 2,
+  "require_conclusion_line": true,
+  "required_keywords_all": [
+    "migration",
+    "pilot",
+    "rollback",
+    "uncertainty"
+  ]
+}

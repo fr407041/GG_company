@@ -1,0 +1,38 @@
+{
+  "id": "common-research-summary-example",
+  "goal": "Review a bounded research brief plus prefetched evidence, then produce a concise decision summary through the ai-company flow.",
+  "strategy": "Prepare a compact evidence packet first, then dispatch one bounded summary job so the child worker never needs broad repo context or live browsing.",
+  "scope_subdir": "tests/fixtures/ai_company_common_research_case",
+  "scope_copy_from": "tests/fixtures/ai_company_common_research_case",
+  "prep_command": "python3 {root}/scripts/prepare_common_research_case.py {scope_path}",
+  "post_verify_command": "python3 {root}/scripts/verify_common_research_artifact.py {scope_path}",
+  "jobs": [
+    {
+      "id": "job-001",
+      "title": "Write final research summary",
+      "instruction": "Write summary.md as concise markdown only. Use exactly 3 short bullet points and then 1 short takeaway sentence. Mention migration risk, pilot metrics, and rollback readiness. Explicitly mention the shift from 95 minutes to 28 minutes and from 14 per week to 5 per week. Use the words migration, pilot, rollback, and uncertainty. Keep the total output under 120 words and do not add an intro or outro.",
+      "files": [
+        "summary.md"
+      ],
+      "worker_template": "summary_markdown",
+      "template_context_files": [
+        "summary_compact_context.txt"
+      ],
+      "success_check": "summary.md concisely summarizes the supplied evidence with explicit decision guidance.",
+      "require_change": true,
+      "test_command": ""
+    }
+  ],
+  "expectations": {
+    "meeting_status": "MEETING_READY",
+    "min_reviewer_verdict_count": 1,
+    "min_accepted_count": 1,
+    "max_reassignment_count": 1,
+    "max_execution_jobs_run": 2,
+    "require_bounded_scope_rate": 1.0,
+    "require_status_file_coverage_rate": 1.0,
+    "require_loop_bounded": true,
+    "require_post_verify_all_passed": true,
+    "min_artifact_score": 1.0
+  }
+}

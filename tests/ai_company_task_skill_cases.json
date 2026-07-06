@@ -1,0 +1,19 @@
+{
+  "cases": [
+    {
+      "id": "mock_success",
+      "spec": "docs/ai_specs/general-task-mock-success.json",
+      "mode": "mock"
+    },
+    {
+      "id": "mock_replan",
+      "spec": "docs/ai_specs/general-task-mock-replan.json",
+      "mode": "mock"
+    },
+    {
+      "id": "complex_coding_mock_success",
+      "spec": "docs/ai_specs/complex-coding-mock-success.json",
+      "mode": "mock"
+    }
+  ]
+}

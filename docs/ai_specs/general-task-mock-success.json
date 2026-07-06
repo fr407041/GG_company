@@ -1,0 +1,37 @@
+{
+  "id": "general-task-mock-success",
+  "goal": "Validate bounded multi-agent execution for a general repository consistency review task.",
+  "strategy": "Split evidence verification and synthesis into small bounded tasks so one worker never needs the full repository context.",
+  "scope_subdir": ".",
+  "jobs": [
+    {
+      "id": "job-001",
+      "title": "Verify goal and checklist anchors",
+      "instruction": "Research and verify that the goal doc and checklist doc describe bounded execution and recovery guardrails.",
+      "files": [
+        "docs/AI_COMPANY_GOAL.zh-TW.md",
+        "docs/AI_COMPANY_VALIDATION_CHECKLIST.zh-TW.md",
+        "configs/ai_company/meeting_decision.schema.json"
+      ],
+      "success_check": "The selected docs and schema can be cited as bounded execution anchors."
+    },
+    {
+      "id": "job-002",
+      "title": "Synthesize generic task validation summary",
+      "instruction": "Synthesize a concise summary of how the repository validates generic bounded tasks without overfocusing on one domain example.",
+      "files": [
+        "docs/AI_COMPANY_GOAL.zh-TW.md",
+        "docs/AI_COMPANY_VALIDATION_CHECKLIST.zh-TW.md",
+        "scripts/run_ai_company_meeting.py"
+      ],
+      "success_check": "The summary can stay grounded in the selected files and bounded task rules."
+    }
+  ],
+  "expectations": {
+    "meeting_status": "MEETING_READY",
+    "min_reviewer_verdict_count": 2,
+    "min_accepted_count": 2,
+    "max_reassignment_count": 0,
+    "max_execution_jobs_run": 2
+  }
+}

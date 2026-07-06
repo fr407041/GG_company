@@ -1,0 +1,6 @@
+- Pilot group cut median environment setup time from 95 minutes to 28 minutes after the migration.
+- Two legacy printer workflows still require a Windows fallback path for a small operations subgroup.
+- Helpdesk tickets dropped from 14 per week to 5 per week after the first two onboarding waves.
+- Security reported faster patch verification because the pilot reduced unmanaged local admin usage.
+- Finance noted that expanding the pilot before printer remediation could create avoidable retraining churn.
+- The platform team already prepared a documented rollback runbook and a staged cutover checklist.

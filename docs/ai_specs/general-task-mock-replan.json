@@ -1,0 +1,39 @@
+{
+  "id": "general-task-mock-replan",
+  "goal": "Validate that a generic task which asks for narrower scope triggers reviewer-led reassignment and still remains bounded.",
+  "strategy": "Force a bounded replan path on one task and confirm that the orchestrator produces reviewer verdicts and a single reassignment instead of looping.",
+  "scope_subdir": ".",
+  "jobs": [
+    {
+      "id": "job-001",
+      "title": "Verify documentation anchors under forced replan",
+      "instruction": "Research the selected docs, but in this mock case force a narrower-scope replan so the orchestration path can be validated.",
+      "files": [
+        "docs/AI_COMPANY_GOAL.zh-TW.md",
+        "docs/AI_COMPANY_VALIDATION_CHECKLIST.zh-TW.md",
+        "configs/ai_company/reviewer_verdict.schema.json"
+      ],
+      "success_check": "The replan path is bounded and reviewer-visible.",
+      "mock_status": "NEEDS_REPLAN"
+    },
+    {
+      "id": "job-002",
+      "title": "Synthesize bounded orchestration note",
+      "instruction": "Synthesize a concise note explaining why bounded reassignment is safer than broad retries for a generic task.",
+      "files": [
+        "docs/AI_COMPANY_MEETING_PROTOCOL.zh-TW.md",
+        "docs/AI_COMPANY_REVIEWER_WORKER_SPEC.zh-TW.md",
+        "scripts/run_ai_company_execution.py"
+      ],
+      "success_check": "The selected files support a bounded orchestration explanation."
+    }
+  ],
+  "expectations": {
+    "meeting_status": "MEETING_READY",
+    "min_reviewer_verdict_count": 3,
+    "min_accepted_count": 1,
+    "min_replan_required_count": 1,
+    "max_reassignment_count": 1,
+    "max_execution_jobs_run": 3
+  }
+}

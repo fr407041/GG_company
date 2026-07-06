@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "scenarios": [
+    { "id": "architecture_chain", "weight": 8, "critical": true },
+    { "id": "role_definition", "weight": 4, "critical": false },
+    { "id": "status_code_contract", "weight": 8, "critical": true },
+    { "id": "bounded_task_slicing", "weight": 8, "critical": true },
+    { "id": "overflow_recovery", "weight": 8, "critical": true },
+    { "id": "timeout_recovery", "weight": 6, "critical": true },
+    { "id": "needs_replan_recovery", "weight": 6, "critical": true },
+    { "id": "loop_guard", "weight": 8, "critical": true },
+    { "id": "false_success_guard", "weight": 8, "critical": true },
+    { "id": "child_limit_guard", "weight": 6, "critical": true },
+    { "id": "router_instability_coverage", "weight": 8, "critical": true },
+    { "id": "failure_case_library", "weight": 5, "critical": false },
+    { "id": "token_control_docs", "weight": 5, "critical": false },
+    { "id": "audit_artifacts", "weight": 8, "critical": true },
+    { "id": "company_gate", "weight": 6, "critical": true },
+    { "id": "linux_delivery_docs", "weight": 4, "critical": false },
+    { "id": "reviewer_role", "weight": 4, "critical": false },
+    { "id": "meeting_protocol", "weight": 8, "critical": true },
+    { "id": "meeting_assignment_schema", "weight": 8, "critical": true },
+    { "id": "meeting_bounded_rules", "weight": 6, "critical": true },
+    { "id": "reviewer_verdict_schema", "weight": 8, "critical": true },
+    { "id": "meeting_scenarios_defined", "weight": 5, "critical": false },
+    { "id": "live_round_this_turn", "weight": 6, "critical": false }
+  ]
+}

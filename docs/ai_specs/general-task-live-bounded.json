@@ -1,0 +1,39 @@
+{
+  "id": "general-task-live-bounded",
+  "goal": "Validate that a generic task run against the real router plus open-source model remains bounded, reviewer-visible, and non-looping under live pressure.",
+  "strategy": "Use two small repository-inspection tasks and measure whether live execution yields status artifacts, reviewer verdicts, and bounded reassignment when pressure appears.",
+  "scope_subdir": ".",
+  "jobs": [
+    {
+      "id": "job-001",
+      "title": "Verify bounded execution anchors",
+      "instruction": "Research and verify that the selected generic task docs define bounded execution, recovery, and reviewer guardrails.",
+      "files": [
+        "docs/AI_COMPANY_GOAL.zh-TW.md",
+        "docs/AI_COMPANY_VALIDATION_CHECKLIST.zh-TW.md",
+        "docs/AI_COMPANY_MEETING_PROTOCOL.zh-TW.md"
+      ],
+      "success_check": "The selected docs expose bounded execution anchors."
+    },
+    {
+      "id": "job-002",
+      "title": "Synthesize generic task orchestration summary",
+      "instruction": "Synthesize a concise generic-task summary from the selected files while keeping uncertainty explicit and without drifting into a domain-specific example.",
+      "files": [
+        "docs/AI_COMPANY_GOAL.zh-TW.md",
+        "docs/AI_COMPANY_REVIEWER_WORKER_SPEC.zh-TW.md",
+        "scripts/run_ai_company_execution.py"
+      ],
+      "success_check": "The summary can stay grounded in the selected files and bounded task rules."
+    }
+  ],
+  "expectations": {
+    "meeting_status": "MEETING_READY",
+    "min_reviewer_verdict_count": 2,
+    "max_reassignment_count": 2,
+    "max_execution_jobs_run": 4,
+    "require_bounded_scope_rate": 1.0,
+    "require_status_file_coverage_rate": 1.0,
+    "require_loop_bounded": true
+  }
+}

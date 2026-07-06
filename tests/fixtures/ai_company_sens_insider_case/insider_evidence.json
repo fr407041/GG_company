@@ -1,0 +1,10 @@
+{
+  "company": "Senseonics Holdings, Inc.",
+  "ticker": "SENS",
+  "as_of_date": "",
+  "source_policy": [
+    "Prefer SEC Form 4 filings.",
+    "Record filing date, trade date, insider name, transaction code, shares, price, and interpretation."
+  ],
+  "recent_filings": []
+}

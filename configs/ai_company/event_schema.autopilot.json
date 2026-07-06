@@ -24,5 +24,9 @@
     "affected_tasks": "array",
     "outcome": "string|null"
   },
-  "decision_trace_requirements": ["reason", "affected_tasks", "outcome"]
+  "decision_trace_requirements": [
+    "reason",
+    "affected_tasks",
+    "outcome"
+  ]
 }
