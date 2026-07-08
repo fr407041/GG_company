@@ -172,6 +172,10 @@ def ensure_status_file(job: dict, status_path: Path) -> Path:
             "FORMAT_INVALID" if "status metadata" in note else
             ""
         ),
+        "model_name": os.environ.get("CCR_PREFERRED_MODEL", ""),
+        "repair_attempted": False,
+        "repair_successful": False,
+        "format_recovery_used": False,
     }
     return finalize_status(Path(job.get("run_dir", status_path.parents[1])), status_path, payload)
 
@@ -383,15 +387,25 @@ def write_runtime_missing_status(run_dir: Path, job: dict, worker_script: Path) 
         "format_cleaning_applied": False,
         "contract_valid": True,
         "failure_family": "WORKER_RUNTIME_MISSING",
+        "model_name": os.environ.get("CCR_PREFERRED_MODEL", ""),
+        "repair_attempted": False,
+        "repair_successful": False,
+        "format_recovery_used": False,
     }
     return finalize_status(run_dir, status_path, payload)
 
 
 def normalize_status_artifact(run_dir: Path, job: dict, status_path: Path) -> Path:
     payload = read_json(status_path)
+    existing_parse_status = str(payload.get("raw_output_parse_status", ""))
     raw_file = Path(str(payload.get("raw_file", "")))
     raw_text = raw_file.read_text(encoding="utf-8", errors="ignore") if raw_file.exists() else ""
-    cleaned = clean_json_payload(raw_text) if raw_text else {"parse_status": "missing", "format_cleaning_applied": False}
+    text_status_modes = {"live_llm_text", "mock", "adapter_summary_template"}
+    cleaned = (
+        {"parse_status": existing_parse_status, "format_cleaning_applied": False}
+        if existing_parse_status in text_status_modes
+        else clean_json_payload(raw_text) if raw_text else {"parse_status": "missing", "format_cleaning_applied": False}
+    )
     payload.setdefault("id", job["id"])
     payload.setdefault("scope_path", job.get("scope_path", ""))
     payload.setdefault("files", job.get("files", []))
@@ -400,6 +414,10 @@ def normalize_status_artifact(run_dir: Path, job: dict, status_path: Path) -> Pa
     payload["raw_output_parse_status"] = cleaned.get("parse_status", "missing")
     payload["format_cleaning_applied"] = bool(cleaned.get("format_cleaning_applied", False))
     payload.setdefault("failure_family", "")
+    payload.setdefault("model_name", os.environ.get("CCR_PREFERRED_MODEL", ""))
+    payload.setdefault("repair_attempted", False)
+    payload.setdefault("repair_successful", False)
+    payload.setdefault("format_recovery_used", False)
     if payload["status"] == "SUCCESS" and cleaned.get("parse_status") in {"invalid_json", "truncated_json"}:
         payload["status"] = "FAILED"
         payload["failure_family"] = "FORMAT_INVALID"

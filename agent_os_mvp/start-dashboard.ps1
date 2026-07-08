@@ -2,7 +2,8 @@ param(
   [int]$BackendPort = 8010,
   [int]$FrontendPort = 5174,
   [switch]$Open,
-  [int]$TimeoutSec = 30
+  [int]$TimeoutSec = 30,
+  [switch]$SelfTestEnvironmentNormalization
 )
 
 $ErrorActionPreference = "Stop"
@@ -101,6 +102,102 @@ function Assert-FrontendLooksLocal {
   }
 }
 
+function ConvertTo-EncodedPowerShellCommand {
+  param([string]$Command)
+  return [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Command))
+}
+
+function Quote-PowerShellLiteral {
+  param([string]$Value)
+  return "'" + ($Value -replace "'", "''") + "'"
+}
+
+function Set-CleanProcessEnvironment {
+  param([System.Diagnostics.ProcessStartInfo]$StartInfo)
+  $environment = $StartInfo.Environment
+  if ($null -eq $environment) {
+    $environment = $StartInfo.EnvironmentVariables
+  }
+  if ($null -eq $environment) {
+    throw "ProcessStartInfo environment collection is not available."
+  }
+
+  $environment.Clear()
+  $seen = @{}
+  $pathValue = $null
+
+  $processEnvironment = [System.Environment]::GetEnvironmentVariables("Process")
+  foreach ($nameValue in $processEnvironment.GetEnumerator()) {
+    $name = [string]$nameValue.Key
+    $value = [string]$nameValue.Value
+    $key = $name.ToLowerInvariant()
+    if ($key -eq "path") {
+      if (-not $pathValue -or $name -ceq "Path") {
+        $pathValue = $value
+      }
+      continue
+    }
+    if (-not $seen.ContainsKey($key)) {
+      $environment[$name] = $value
+      $seen[$key] = $true
+    }
+  }
+
+  if ($pathValue) {
+    $environment["Path"] = $pathValue
+  }
+}
+
+function New-CleanPowerShellStartInfo {
+  param(
+    [string]$Command,
+    [string]$WorkingDirectory
+  )
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = "powershell.exe"
+  $encodedCommand = ConvertTo-EncodedPowerShellCommand -Command $Command
+  $startInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encodedCommand"
+  $startInfo.WorkingDirectory = $WorkingDirectory
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  Set-CleanProcessEnvironment -StartInfo $startInfo
+  return $startInfo
+}
+
+function Start-CleanPowerShellProcess {
+  param(
+    [string]$Command,
+    [string]$WorkingDirectory
+  )
+  $startInfo = New-CleanPowerShellStartInfo -Command $Command -WorkingDirectory $WorkingDirectory
+  return [System.Diagnostics.Process]::Start($startInfo)
+}
+
+if ($SelfTestEnvironmentNormalization) {
+  $originalPath = $env:Path
+  $originalPATH = $env:PATH
+  try {
+    $env:Path = "C:\FirstPath"
+    $env:PATH = "C:\DuplicatePath"
+    $startInfo = New-CleanPowerShellStartInfo -Command "exit 0" -WorkingDirectory $root
+    $environment = $startInfo.Environment
+    if ($null -eq $environment) {
+      $environment = $startInfo.EnvironmentVariables
+    }
+    $pathKeys = @($environment.Keys | Where-Object { $_ -ieq "Path" })
+    if ($pathKeys.Count -ne 1 -or $pathKeys[0] -cne "Path") {
+      throw "Expected exactly one canonical Path entry after normalization; got: $($pathKeys -join ', ')"
+    }
+    Write-Host "Environment normalization self-test passed."
+    exit 0
+  } finally {
+    $env:Path = $originalPath
+    if ($null -ne $originalPATH) {
+      $env:PATH = $originalPATH
+    }
+  }
+}
+
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
 if (-not (Test-Path $backendPython)) {
@@ -128,31 +225,22 @@ $frontendPidFile = Join-Path $logDir "frontend.pid"
 
 Remove-Item -Force $backendOut, $backendErr, $frontendOut, $frontendErr -ErrorAction SilentlyContinue
 
-$backendProcess = Start-Process `
-  -FilePath $backendPython `
-  -ArgumentList @("-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "$BackendPort") `
-  -WorkingDirectory $backendDir `
-  -RedirectStandardOutput $backendOut `
-  -RedirectStandardError $backendErr `
-  -WindowStyle Hidden `
-  -PassThru
+$backendCommand = @"
+Set-Location -LiteralPath $(Quote-PowerShellLiteral -Value $backendDir)
+& $(Quote-PowerShellLiteral -Value $backendPython) -m uvicorn app.main:app --host 127.0.0.1 --port $BackendPort > $(Quote-PowerShellLiteral -Value $backendOut) 2> $(Quote-PowerShellLiteral -Value $backendErr)
+"@
+
+$backendProcess = Start-CleanPowerShellProcess -Command $backendCommand -WorkingDirectory $backendDir
 
 Set-Content -Path $backendPidFile -Value $backendProcess.Id -Encoding ASCII
 
 $frontendCommand = @"
 `$env:VITE_API_BASE_URL = 'http://127.0.0.1:$BackendPort'
-Set-Location '$frontendDir'
-& '$pnpm' run dev --host 127.0.0.1 --port $FrontendPort
+Set-Location -LiteralPath $(Quote-PowerShellLiteral -Value $frontendDir)
+& $(Quote-PowerShellLiteral -Value $pnpm) run dev --host 127.0.0.1 --port $FrontendPort > $(Quote-PowerShellLiteral -Value $frontendOut) 2> $(Quote-PowerShellLiteral -Value $frontendErr)
 "@
 
-$frontendProcess = Start-Process `
-  -FilePath "powershell.exe" `
-  -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $frontendCommand) `
-  -WorkingDirectory $frontendDir `
-  -RedirectStandardOutput $frontendOut `
-  -RedirectStandardError $frontendErr `
-  -WindowStyle Hidden `
-  -PassThru
+$frontendProcess = Start-CleanPowerShellProcess -Command $frontendCommand -WorkingDirectory $frontendDir
 
 Set-Content -Path $frontendPidFile -Value $frontendProcess.Id -Encoding ASCII
 
