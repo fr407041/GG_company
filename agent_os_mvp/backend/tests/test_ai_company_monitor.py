@@ -6,6 +6,7 @@ import os
 import tempfile
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from app.db import get_db, init_db
@@ -292,6 +293,72 @@ class AiCompanyMonitorSummaryTest(unittest.TestCase):
             "idle_agent_count",
         ]))
         self.assertEqual("pass", detail["selected_run_summary"]["overall_status"])
+
+    def test_expected_replan_passed_semantics_are_exposed(self) -> None:
+        with get_db() as connection:
+            run_dir = os.path.join(self.tempdir.name, "run-20260709-001000-monitor-replan")
+            ai_dir = os.path.join(run_dir, "ai_company")
+            results_dir = os.path.join(run_dir, "results")
+            os.makedirs(ai_dir, exist_ok=True)
+            os.makedirs(results_dir, exist_ok=True)
+            with open(os.path.join(ai_dir, "task_harness_report.json"), "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "spec_id": "general-task-mock-replan",
+                        "mode": "mock",
+                        "overall_status": "pass",
+                        "expectations": {"all_passed": True},
+                        "kpis": {
+                            "goal": "Exercise expected replan",
+                            "execution_jobs_run": 3,
+                            "replan_required_count": 1,
+                            "accepted_count": 2,
+                            "failure_family_counts": {"replan": 1},
+                        },
+                    },
+                    handle,
+                )
+            with open(os.path.join(ai_dir, "meeting_decision.json"), "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "meeting_status": "MEETING_READY",
+                        "goal": "Exercise expected replan",
+                        "task_assignments": [
+                            {
+                                "task_id": "job-001",
+                                "owner_role": "research_agent",
+                                "scope": ["README.md"],
+                                "depends_on": [],
+                                "fallback_plan": "narrow scope",
+                            }
+                        ],
+                    },
+                    handle,
+                )
+            with open(os.path.join(ai_dir, "reviewer_verdicts.json"), "w", encoding="utf-8") as handle:
+                json.dump({"verdicts": [{"task_id": "job-001", "verdict": "REPLAN_REQUIRED"}]}, handle)
+            with open(os.path.join(ai_dir, "execution_summary.json"), "w", encoding="utf-8") as handle:
+                json.dump({"execution_log": [{"task_id": "job-001"}]}, handle)
+            with open(os.path.join(results_dir, "job-001.status.json"), "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "id": "job-001",
+                        "status": "NEEDS_REPLAN",
+                        "owner_role": "research_agent",
+                        "failure_family": "",
+                        "verification_note": "expected replan",
+                    },
+                    handle,
+                )
+
+            with patch("app.services.ai_company_monitor.RESULTS_ROOT", Path(self.tempdir.name)):
+                snapshot = collect_ai_company_monitor(connection)
+
+        latest = snapshot["latest_run"]
+        self.assertTrue(latest["expected_replan_passed"])
+        self.assertEqual("expected_replan_passed", latest["run_semantics"]["kind"])
+        self.assertEqual("expected_replan_passed", latest["alerts"][0]["type"])
+        self.assertTrue(snapshot["selected_run_preview"]["expected_replan_passed"])
 
 
 if __name__ == "__main__":

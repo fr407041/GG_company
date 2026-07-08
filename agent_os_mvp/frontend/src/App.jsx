@@ -118,6 +118,7 @@ function deriveRunHealth(run, summary) {
   const outputBlocked = Number(run?.output_guard?.policy_blocked_count || 0) > 0;
   const failedAgents = Number(summary?.failed_agent_count || run?.failed_agent_count || 0);
   const overallStatus = run?.overall_status || summary?.overall_status;
+  const expectedReplanPassed = Boolean(run?.expected_replan_passed || summary?.expected_replan_passed);
 
   if (inputBlocked) {
     return {
@@ -133,6 +134,14 @@ function deriveRunHealth(run, summary) {
       label: "Watchdog escalated",
       summary: "The watchdog found a condition that needs manual attention.",
       nextAction: "Open Guards and Debug to review watchdog events and affected tasks.",
+    };
+  }
+  if (expectedReplanPassed && !contractFailed && !outputBlocked && !isFailedStatus(overallStatus)) {
+    return {
+      status: "healthy",
+      label: "Pass with expected replan",
+      summary: run?.run_semantics?.summary || "This run intentionally exercised replan and still passed all expectations.",
+      nextAction: "Open Run Story or Agents if you want to see how the replan recovered.",
     };
   }
   if (contractFailed || outputBlocked || failedAgents > 0 || isFailedStatus(overallStatus)) {
@@ -175,6 +184,7 @@ function derivePipelineStages(run) {
   const verdictCount = Number(run?.review_verdicts?.length ?? 0);
   const failedAgents = Number(run?.failed_agent_count || 0);
   const artifactScore = run?.final_result?.artifact_score;
+  const expectedReplanPassed = Boolean(run?.expected_replan_passed);
 
   return [
     {
@@ -196,9 +206,15 @@ function derivePipelineStages(run) {
     {
       id: "execution",
       name: "Execution",
-      status: failedAgents > 0 ? "fail" : executionCount > 0 ? "pass" : "not-run",
-      summary: `${executionCount} execution job${executionCount === 1 ? "" : "s"} recorded.`,
-      action: failedAgents > 0 ? "Open Agents to find the failing task." : "Check artifacts if evidence is needed.",
+      status: expectedReplanPassed && failedAgents > 0 ? "warning" : failedAgents > 0 ? "fail" : executionCount > 0 ? "pass" : "not-run",
+      summary: expectedReplanPassed
+        ? `${executionCount} jobs recorded; expected replan was exercised and the run passed.`
+        : `${executionCount} execution job${executionCount === 1 ? "" : "s"} recorded.`,
+      action: expectedReplanPassed
+        ? "Open Agents to inspect the replan path if needed."
+        : failedAgents > 0
+          ? "Open Agents to find the failing task."
+          : "Check artifacts if evidence is needed.",
     },
     {
       id: "reviewer",
@@ -256,6 +272,7 @@ function deriveAttentionItems(run) {
     push("warning", "Run detail unavailable", "The monitor has not loaded a selected run yet.", "Refresh or choose another run.");
     return items;
   }
+  const expectedReplanPassed = Boolean(run.expected_replan_passed);
 
   if (run.input_guard?.blocked) {
     push(
@@ -298,7 +315,20 @@ function deriveAttentionItems(run) {
     );
   }
 
+  if (expectedReplanPassed) {
+    push(
+      "low",
+      "Expected replan passed",
+      run.run_semantics?.summary || "The run contains replan signals, but the harness expected that behavior and passed.",
+      "Open Agents only if you want to inspect the replan handoff.",
+      "Run Semantics",
+    );
+  }
+
   (run.failures_by_agent || []).forEach((agent) => {
+    if (expectedReplanPassed) {
+      return;
+    }
     const firstFailure = agent.failures?.[0];
     push(
       "high",
@@ -312,7 +342,7 @@ function deriveAttentionItems(run) {
   });
 
   (run.alerts || [])
-    .filter((alert) => normalizeToken(alert.type) !== "healthy")
+    .filter((alert) => normalizeToken(alert.type) !== "healthy" && !(expectedReplanPassed && normalizeToken(alert.type) === "expected-replan-passed"))
     .forEach((alert) => {
       push(alert.severity === "red" ? "high" : "medium", alert.title, alert.detail, "Inspect the matching pipeline stage.", "Alert");
     });

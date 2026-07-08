@@ -144,6 +144,14 @@ def find_pnpm() -> str | None:
     return None
 
 
+def frontend_dependency_hint() -> str:
+    return (
+        "Hint: install frontend dependencies with "
+        "'cd agent_os_mvp/frontend && pnpm install', then rerun verification; "
+        "or use --skip-frontend for a core-only check."
+    )
+
+
 def build_checks(args: argparse.Namespace) -> list[CheckSpec]:
     python = sys.executable
     checks: list[CheckSpec] = [
@@ -201,6 +209,9 @@ def build_checks(args: argparse.Namespace) -> list[CheckSpec]:
     if args.include_live_llm:
         checks.append(("Offline live LLM E2E", [python, "scripts/verify_ai_company_live_llm.py"], ROOT, None))
 
+    if args.include_browser_smoke:
+        checks.append(("Dashboard browser smoke", [python, "scripts/smoke_dashboard_browser.py"], ROOT, None))
+
     return checks
 
 
@@ -216,6 +227,7 @@ def main() -> int:
     parser.add_argument("--skip-dashboard", action="store_true", help="Skip backend dashboard tests.")
     parser.add_argument("--skip-frontend", action="store_true", help="Skip Vite frontend build.")
     parser.add_argument("--include-live-llm", action="store_true", help="Also run the offline live LLM E2E case.")
+    parser.add_argument("--include-browser-smoke", action="store_true", help="Also launch the dashboard and verify it with a headless browser.")
     args = parser.parse_args()
 
     results: list[CheckResult] = []
@@ -229,8 +241,10 @@ def main() -> int:
         print(f"{status}  {result.name}")
         if not result.ok:
             print(f"      {result.command}")
-            if "pnpm" in result.command and not find_pnpm():
-                print("      Hint: install pnpm or rerun with --skip-frontend.")
+            if result.name == "Dashboard frontend build":
+                print(f"      {frontend_dependency_hint()}")
+            if result.name == "Dashboard browser smoke":
+                print("      Hint: install Playwright in the test environment, or rerun without --include-browser-smoke.")
 
     failed = [item for item in results if not item.ok]
     if failed:

@@ -3,7 +3,8 @@ param(
   [int]$FrontendPort = 5174,
   [switch]$Open,
   [int]$TimeoutSec = 30,
-  [switch]$SelfTestEnvironmentNormalization
+  [switch]$SelfTestEnvironmentNormalization,
+  [switch]$SelfTestSuccessOutput
 )
 
 $ErrorActionPreference = "Stop"
@@ -173,6 +174,27 @@ function Start-CleanPowerShellProcess {
   return [System.Diagnostics.Process]::Start($startInfo)
 }
 
+function Format-DashboardReadyMessage {
+  param(
+    [int]$BackendPort,
+    [int]$FrontendPort,
+    [int]$BackendPid,
+    [int]$FrontendPid,
+    [string]$LogDir,
+    [string]$Root
+  )
+  return @"
+Dashboard is ready.
+Backend:  http://127.0.0.1:$BackendPort
+Frontend: http://127.0.0.1:$FrontendPort
+Backend PID:  $BackendPid
+Frontend PID: $FrontendPid
+Logs:     $LogDir
+Root:     $Root
+Stop:     .\agent_os_mvp\stop-dashboard.ps1
+"@
+}
+
 if ($SelfTestEnvironmentNormalization) {
   $originalPath = $env:Path
   $originalPATH = $env:PATH
@@ -196,6 +218,17 @@ if ($SelfTestEnvironmentNormalization) {
       $env:PATH = $originalPATH
     }
   }
+}
+
+if ($SelfTestSuccessOutput) {
+  $message = Format-DashboardReadyMessage -BackendPort 8010 -FrontendPort 5174 -BackendPid 1234 -FrontendPid 5678 -LogDir $logDir -Root $root
+  foreach ($expected in @("Dashboard is ready.", "Backend:", "Frontend:", "Backend PID:", "Frontend PID:", "Logs:", "Stop:")) {
+    if ($message -notmatch [regex]::Escape($expected)) {
+      throw "Success output self-test failed; missing: $expected"
+    }
+  }
+  Write-Host "Success output self-test passed."
+  exit 0
 }
 
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -255,11 +288,7 @@ try {
   throw
 }
 
-Write-Host "Dashboard is ready."
-Write-Host "Backend:  http://127.0.0.1:$BackendPort"
-Write-Host "Frontend: http://127.0.0.1:$FrontendPort"
-Write-Host "Logs:     $logDir"
-Write-Host "Root:     $root"
+Write-Host (Format-DashboardReadyMessage -BackendPort $BackendPort -FrontendPort $FrontendPort -BackendPid $backendProcess.Id -FrontendPid $frontendProcess.Id -LogDir $logDir -Root $root)
 
 if ($Open) {
   Start-Process "http://127.0.0.1:$FrontendPort"

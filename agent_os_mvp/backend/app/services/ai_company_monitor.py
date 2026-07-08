@@ -76,6 +76,7 @@ def _severity_from_alert_type(alert_type: str) -> str:
 def _build_alerts(report: dict[str, Any]) -> list[dict[str, Any]]:
     kpis = report.get("kpis", {})
     failure_counts = kpis.get("failure_family_counts", {})
+    expected_replan_passed = _is_expected_replan_passed(report)
     alerts: list[dict[str, Any]] = []
 
     if failure_counts.get("overflow", 0) > 0:
@@ -99,10 +100,14 @@ def _build_alerts(report: dict[str, Any]) -> list[dict[str, Any]]:
     if kpis.get("replan_required_count", 0) > 0:
         alerts.append(
             {
-                "type": "replan_loop",
-                "severity": _severity_from_alert_type("replan_loop"),
-                "title": "Replan Pressure",
-                "detail": f"Replan required count = {kpis.get('replan_required_count', 0)}. Current task slicing may still be too broad.",
+                "type": "expected_replan_passed" if expected_replan_passed else "replan_loop",
+                "severity": "green" if expected_replan_passed else _severity_from_alert_type("replan_loop"),
+                "title": "Expected Replan Exercised" if expected_replan_passed else "Replan Pressure",
+                "detail": (
+                    f"Replan required count = {kpis.get('replan_required_count', 0)}, and the harness expectations still passed."
+                    if expected_replan_passed
+                    else f"Replan required count = {kpis.get('replan_required_count', 0)}. Current task slicing may still be too broad."
+                ),
             }
         )
     if failure_counts.get("timeout", 0) > 0:
@@ -139,8 +144,33 @@ def _build_alerts(report: dict[str, Any]) -> list[dict[str, Any]]:
     return alerts
 
 
+def _is_expected_replan_passed(report: dict[str, Any]) -> bool:
+    kpis = report.get("kpis", {})
+    expectations = report.get("expectations", {})
+    return (
+        str(report.get("overall_status", "")).lower() == "pass"
+        and bool(expectations.get("all_passed", False))
+        and int(kpis.get("replan_required_count", 0) or 0) > 0
+    )
+
+
+def _run_semantics(report: dict[str, Any]) -> dict[str, Any]:
+    expected_replan_passed = _is_expected_replan_passed(report)
+    if expected_replan_passed:
+        return {
+            "kind": "expected_replan_passed",
+            "label": "Pass with expected replan",
+            "summary": "This run intentionally exercised reviewer-led replan and still passed all harness expectations.",
+        }
+    return {
+        "kind": "standard",
+        "label": _normalize_overall_status(report.get("overall_status")),
+        "summary": "",
+    }
+
+
 def _read_optional_text(path: Path, limit: int = 12000) -> str:
-    if not path.exists():
+    if not path or not path.exists() or not path.is_file():
         return ""
     text = path.read_text(encoding="utf-8", errors="ignore")
     if len(text) <= limit:
@@ -579,6 +609,8 @@ def _build_selected_run_summary(payload: dict[str, Any] | None) -> dict[str, Any
         "running_agent_count": len(board.get("running", [])),
         "failed_agent_count": len(board.get("failed", [])),
         "idle_agent_count": len(board.get("idle", [])),
+        "expected_replan_passed": bool(payload.get("expected_replan_passed", False)),
+        "run_semantics": payload.get("run_semantics", {}),
     }
 
 
@@ -658,6 +690,8 @@ def _summarize_run(run_dir: Path) -> dict[str, Any]:
     ]
 
     artifact_verify = report.get("kpis", {}).get("artifact_verify", {}).get("parsed", {})
+    run_semantics = _run_semantics(report)
+    expected_replan_passed = bool(run_semantics.get("kind") == "expected_replan_passed")
     alerts = _build_alerts(report)
 
     status_details = []
@@ -706,6 +740,8 @@ def _summarize_run(run_dir: Path) -> dict[str, Any]:
         "done_agent_count": len(agent_state_board["done"]),
         "idle_agent_count": len(agent_state_board["idle"]),
         "roster_count": len(roster),
+        "expected_replan_passed": expected_replan_passed,
+        "run_semantics": run_semantics,
     }
 
     active_agents = agent_state_board["running"] + agent_state_board["waiting"]
@@ -840,6 +876,8 @@ def collect_ai_company_monitor(connection: Connection) -> dict[str, Any]:
                 "waiting_agent_count": len(item.get("agent_state_board", {}).get("waiting", [])),
                 "done_agent_count": len(item.get("agent_state_board", {}).get("done", [])),
                 "idle_agent_count": len(item.get("agent_state_board", {}).get("idle", [])),
+                "expected_replan_passed": bool(item.get("expected_replan_passed", False)),
+                "run_semantics": item.get("run_semantics", {}),
             }
             for item in runs
         ],

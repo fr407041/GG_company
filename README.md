@@ -41,6 +41,12 @@ Use this first. It is the canonical no-LLM install check and should be boringly 
 python3 scripts/verify_ai_company_installation.py
 ```
 
+If this is a fresh checkout and frontend dependencies are not installed yet, bootstrap the dashboard once before the full check:
+
+```bash
+cd agent_os_mvp/frontend && pnpm install
+```
+
 For a smaller core-only check:
 
 ```bash
@@ -136,6 +142,7 @@ If `8010` or `5174` is already owned by another process, the Windows launcher no
 ```
 
 The launcher waits for backend `/health` and frontend HTML before reporting success. Use `.\agent_os_mvp\stop-dashboard.ps1` to stop the recorded child processes.
+On success it prints the backend URL, frontend URL, backend/frontend PIDs, log directory, and stop command.
 
 The dashboard reads `results/ai_company_task_harness/` when launched in the same project root and now surfaces input guard, output guard, and contract validation artifacts through the monitor backend.
 
@@ -174,6 +181,14 @@ python3 scripts/verify_ai_company_installation.py --include-live-llm
 ```
 
 The live-LLM check uses local fixtures and does not browse the internet. It requires Docker and a local `claude-ccr:ubuntu22`-compatible image containing `claude` or `ccr`.
+
+To run the optional dashboard browser smoke in an environment with Playwright installed:
+
+```bash
+python3 scripts/verify_ai_company_installation.py --include-browser-smoke
+```
+
+This launches the backend/frontend on temporary ports, checks `/health` and `/api/ai-company-monitor`, opens the dashboard in a headless browser, verifies the `Run Operations` first screen and the six tabs, then cleans up the child processes.
 
 Score currently available LLM models through the same AI-company live harness:
 
