@@ -16,6 +16,7 @@ from ai_company_contracts import (
     validate_task_harness_report,
     write_guard_report,
 )
+from ai_company_llm_reliability import write_llm_reliability_report
 from materialize_ai_company_task_run import ROOT, materialize_run, read_json
 from main_agent_memory_guard import run_guard
 from run_ai_company_watchdog import write_heartbeat
@@ -423,9 +424,16 @@ def main() -> None:
     env.setdefault("CLAUDE_CHILD_TIMEOUT_SEC", str(defaults.get("child_timeout_sec", 60)))
     env.setdefault("AI_COMPANY_CALL_TIMEOUT_SEC", str(defaults.get("call_timeout_sec", 90)))
     env.setdefault("CLAUDE_MODEL_ALIAS", str(defaults.get("claude_model_alias", "sonnet")))
-    env.setdefault("CCR_PREFERRED_MODEL", str(defaults.get("live_model", "qwen2.5-coder:3b")))
+    env.setdefault("CCR_PREFERRED_MODEL", str(defaults.get("live_model", "qwen3:4b")))
     env.setdefault("CCR_MAX_OUTPUT_TOKENS", str(defaults.get("router_max_output_tokens", 1024)))
     env.setdefault("CLAUDE_TOOLS_VALUE", str(defaults.get("claude_tools_value", "")))
+    env.setdefault("AI_COMPANY_WORKER_REPAIR_ENABLED", "1" if defaults.get("worker_repair_enabled", True) else "0")
+    env.setdefault("AI_COMPANY_WORKER_REPAIR_ATTEMPT_LIMIT", str(defaults.get("worker_repair_attempt_limit", 1)))
+    env.setdefault("AI_COMPANY_SCRIPTS_DIR", str(ROOT / "scripts"))
+    env.setdefault("AI_COMPANY_LLM_RATE_LIMIT_ENABLED", "1" if defaults.get("llm_rate_limit_enabled", True) else "0")
+    env.setdefault("AI_COMPANY_LLM_REQUESTS_PER_MINUTE", str(defaults.get("llm_rate_limit_requests_per_minute", 20)))
+    env.setdefault("AI_COMPANY_LLM_RATE_LIMIT_STATE_FILE", str(defaults.get("llm_rate_limit_state_file", "tmp/ai_company_llm_rate_limit.json")))
+    env.setdefault("AI_COMPANY_LLM_RATE_LIMIT_TIMEOUT_SEC", str(defaults.get("llm_rate_limit_timeout_sec", 300)))
     if DEFAULT_CLAUDE_CHILD_SETTINGS_PATH.exists():
         env.setdefault("CLAUDE_CHILD_SETTINGS_PATH", str(DEFAULT_CLAUDE_CHILD_SETTINGS_PATH))
     if args.mode == "mock":
@@ -458,7 +466,20 @@ def main() -> None:
     meeting = read_json(meeting_path)
     execution = read_json(execution_path)
     reviewer = read_json(run_dir / "ai_company" / "reviewer_verdicts.json")
+    llm_reliability = (
+        write_llm_reliability_report(run_dir, defaults, reviewer)
+        if bool(defaults.get("llm_reliability_report_enabled", True))
+        else {}
+    )
     kpis = build_kpis(run_dir, spec, meeting, execution, reviewer, defaults)
+    if llm_reliability:
+        kpis["llm_model_name"] = llm_reliability.get("model_name", "")
+        kpis["llm_repair_attempted_count"] = llm_reliability.get("repair_attempted_count", 0)
+        kpis["llm_repair_successful_count"] = llm_reliability.get("repair_successful_count", 0)
+        kpis["llm_format_recovery_count"] = llm_reliability.get("format_recovery_count", 0)
+        kpis["llm_rate_limited_task_count"] = llm_reliability.get("rate_limited_task_count", 0)
+        kpis["llm_rate_limit_timeout_count"] = llm_reliability.get("rate_limit_timeout_count", 0)
+        kpis["llm_rate_limit_wait_sec"] = llm_reliability.get("total_rate_limit_wait_sec", 0.0)
     artifact_verify = run_post_verify_if_needed(spec, run_dir)
     write_heartbeat(run_dir, "after_post_verify", "running")
     run_memory_guard_phase(run_dir, defaults, "after_post_verify")

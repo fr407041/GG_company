@@ -24,6 +24,7 @@ FAILURE_FAMILIES = {
     "OUTPUT_POLICY_BLOCKED",
     "WORKER_RUNTIME_MISSING",
     "PROMPT_INJECTION_SUSPECTED",
+    "LLM_RATE_LIMIT_TIMEOUT",
 }
 
 
@@ -326,4 +327,3 @@ def guard_output_artifact(status: dict[str, Any], artifact_verify: dict[str, Any
         "guard_failures": failures,
         "failure_family": "OUTPUT_POLICY_BLOCKED" if failures else "",
     }
-
