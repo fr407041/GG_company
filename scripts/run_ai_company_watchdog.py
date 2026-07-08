@@ -346,15 +346,31 @@ def watchdog_once(run_dir: Path, defaults: dict[str, Any] | None = None) -> dict
         artifact = read_json(artifact_path)
         artifact_parsed = artifact.get("parsed", {}) if isinstance(artifact, dict) else {}
         if bool(defaults.get("watchdog_require_final_artifact_verify", True)) and (not artifact_path.exists() or not artifact_parsed.get("all_passed", False)):
-            repaired_artifact = None
-            if actions_used < max_actions:
-                repaired_artifact = run_post_verify(run_dir)
-                actions_used += 1 if repaired_artifact is not None else 0
-            repaired_parsed = (repaired_artifact or {}).get("parsed", {}) if isinstance(repaired_artifact, dict) else {}
-            if repaired_artifact is not None and repaired_parsed.get("all_passed", False):
-                evt = event("POST_VERIFY_MISSING", "warning", "reran_post_verify", "Post verify was regenerated and now passes.")
+            harness_report = read_json(ai_dir / "task_harness_report.json")
+            spec_path = Path(str(harness_report.get("spec_file", "")))
+            spec = read_json(spec_path) if spec_path.exists() else {}
+            has_post_verify = bool(spec.get("post_verify_command"))
+            harness_passed = (
+                harness_report.get("overall_status") == "pass"
+                and (harness_report.get("expectations") or {}).get("all_passed", True) is not False
+            )
+            if not has_post_verify and harness_passed:
+                evt = event(
+                    "FINAL_VERIFY_NOT_CONFIGURED",
+                    "info",
+                    "accepted_harness_pass",
+                    "No post_verify_command is configured; task_harness_report overall_status=pass is accepted as final evidence.",
+                )
             else:
-                evt = event("FINAL_NOT_PASS", "error", "WATCHDOG_ESCALATION_REQUIRED", "Final artifact verify is missing or failing; bounded automatic recovery is exhausted or insufficient.")
+                repaired_artifact = None
+                if actions_used < max_actions:
+                    repaired_artifact = run_post_verify(run_dir)
+                    actions_used += 1 if repaired_artifact is not None else 0
+                repaired_parsed = (repaired_artifact or {}).get("parsed", {}) if isinstance(repaired_artifact, dict) else {}
+                if repaired_artifact is not None and repaired_parsed.get("all_passed", False):
+                    evt = event("POST_VERIFY_MISSING", "warning", "reran_post_verify", "Post verify was regenerated and now passes.")
+                else:
+                    evt = event("FINAL_NOT_PASS", "error", "WATCHDOG_ESCALATION_REQUIRED", "Final artifact verify is missing or failing; bounded automatic recovery is exhausted or insufficient.")
             events.append(evt)
             append_event(run_dir, evt)
 

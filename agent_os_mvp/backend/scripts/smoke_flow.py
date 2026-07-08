@@ -16,7 +16,9 @@ from app.services.dashboard import collect_dashboard
 
 def main() -> None:
     root = BACKEND_DIR
-    smoke_db = root / "data" / "smoke_agent_os.db"
+    configured_db = os.getenv("AGENT_OS_DB_PATH")
+    smoke_db = Path(configured_db) if configured_db else root / "data" / "smoke_agent_os.db"
+    smoke_db.parent.mkdir(parents=True, exist_ok=True)
     os.environ["AGENT_OS_DB_PATH"] = str(smoke_db)
 
     if smoke_db.exists():
