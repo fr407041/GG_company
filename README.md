@@ -123,6 +123,20 @@ Backend health:
 http://127.0.0.1:8010/health
 ```
 
+Windows direct launch:
+
+```powershell
+.\agent_os_mvp\start-dashboard.ps1
+```
+
+If `8010` or `5174` is already owned by another process, the Windows launcher now fails loudly with the owning PID and command line instead of opening a stale dashboard from another workspace. Use explicit alternate ports when needed:
+
+```powershell
+.\agent_os_mvp\start-dashboard.ps1 -BackendPort 8014 -FrontendPort 5180
+```
+
+The launcher waits for backend `/health` and frontend HTML before reporting success. Use `.\agent_os_mvp\stop-dashboard.ps1` to stop the recorded child processes.
+
 The dashboard reads `results/ai_company_task_harness/` when launched in the same project root and now surfaces input guard, output guard, and contract validation artifacts through the monitor backend.
 
 Simple dashboard guide:

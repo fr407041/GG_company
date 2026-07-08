@@ -153,3 +153,18 @@ build 輸出在：
 - 這個 dashboard 本身不會下載模型
 - 這個 dashboard 本身不會修改你的 router 設定
 - 它只負責讀取結果並視覺化
+## Windows launcher reliability note
+
+- `start-dashboard.ps1` refuses to start if backend/frontend ports are already used by another process.
+- The error includes the owning PID and command line so you can tell whether another workspace is already running.
+- Use alternate ports when needed:
+
+```powershell
+.\start-dashboard.ps1 -BackendPort 8014 -FrontendPort 5180
+```
+
+- Manual Vite startup should pass arguments directly:
+
+```bash
+VITE_API_BASE_URL=http://127.0.0.1:8010 npm run dev --host 127.0.0.1 --port 5174
+```
